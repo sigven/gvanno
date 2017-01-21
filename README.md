@@ -2,9 +2,7 @@
 
 ### Overview
 
-The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and clinical interpretation of individual cancer genomes. It can analyze both somatic SNVs/InDels and copy number aberrations. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with oncology-relevant, up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno) (Pedersen et al., 2016), and produces HTML reports that can be navigated by clinical oncologists (Figure 1).
-
-![PCGR overview](PCGR_workflow.png)
+The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and interpretation of human germline calls, encoded in the VCF format. It can analyze both both SNVs/InDels. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno) (Pedersen et al., 2016)
 
 #### Annotation resources included in PCGR (v1.1)
 
