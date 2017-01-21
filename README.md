@@ -1,10 +1,10 @@
-##gvanno - germline variant annotator
+## gvanno - germline variant annotator
 
 ### Overview
 
-The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and interpretation of human germline calls, encoded in the VCF format. It can analyze both SNVs and short InDels. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno) (Pedersen et al., 2016)
+The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and interpretation of human germline calls. It accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno) (Pedersen et al., Genome Biology, 2016). 
 
-#### Annotation resources included in gvanno (v0.1)
+#### Annotation resources included in gvanno - v0.1
 
 * [VEP v85](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor release 85 (GENCODE v19 as the gene model)
 * [dBNSFP v3.2](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (March 2016)
@@ -26,13 +26,12 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
 2. TODO (Ghis): Test that Docker is running
 2. TODO (Ghis): Recommended settings for Docker VM (Memory: 5GB, CPUs: 4), how to set them
 
-#### STEP 2: Installation of gvanno
+#### STEP 2: Installation of gvanno (GRCh37)
 
-1. Make a working _gvanno_ directory, e.g. `mkdir ~/gvanno` 
+1. Make a working gvanno directory, e.g. `mkdir ~/gvanno`
 2. Download and unpack the data bundle (approx. 16Gb) in the gvanno directory
    * `cd ~/gvanno`
    *  Download [data bundle](https://drive.google.com/open?id=0B8aYD2TJ472mUFVXcmo1ZXY0OWM) from Google Drive to `~/gvanno`
    * Decompress and untar bundle: `gzip -dc gvanno.bundle.v0.1.grch37.tgz | tar xvf -`
-2. Pull the gvanno Docker image from DockerHub: 
+2. Pull the gvanno Docker image from DockerHub:
    * `docker pull sigven/gvanno:latest`
-
