@@ -35,3 +35,5 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
    * Decompress and untar the data bundle, e.g.: `tar -xvzf gvanno.bundle.v0.1.grch37.tgz`
 2. Pull the gvanno Docker image from DockerHub:
    * `docker pull sigven/gvanno:latest`
+
+#### STEP 3: Run examples
