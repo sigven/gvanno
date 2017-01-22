@@ -28,12 +28,13 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
 
 #### STEP 2: Installation of gvanno (GRCh37)
 
-1. Make a working gvanno directory, e.g. `mkdir ~/gvanno`
+1. Make a gvanno directory
 2. Download and unpack the data bundle (approx. 16Gb) in the gvanno directory
    * `cd ~/gvanno`
-   *  Download the [data bundle](https://drive.google.com/open?id=0B8aYD2TJ472mUFVXcmo1ZXY0OWM) to `~/gvanno`
+   *  Download the [data bundle](https://drive.google.com/drive/folders/0B8aYD2TJ472mRUpFTEc4YzlTSUk) to `~/gvanno`
    * Decompress and untar the data bundle, e.g.: `tar -xvzf gvanno.bundle.v0.1.grch37.tgz`
-2. Pull the gvanno Docker image from DockerHub:
+3. Pull the gvanno Docker image from DockerHub:
    * `docker pull sigven/gvanno:latest`
+4. Download the [gvanno pipeline script](https://github.com/sigven/gvanno/releases/download/v0.1/gvanno.sh) to `~/gvanno`
 
 #### STEP 3: Run examples
