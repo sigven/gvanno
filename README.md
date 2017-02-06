@@ -28,7 +28,7 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
 
 #### STEP 2: Installation of gvanno (GRCh37)
 
-1. Make a gvanno directory
+1. Make a gvanno directory, e.g. `mkdir ~/gvanno`
 2. Download and unpack the data bundle (approx. 16Gb) in the gvanno directory
    * `cd ~/gvanno`
    *  Download the [data bundle](https://drive.google.com/drive/folders/0B8aYD2TJ472mRUpFTEc4YzlTSUk) to `~/gvanno`
