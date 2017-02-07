@@ -83,15 +83,6 @@ RUN cpanm File::ShareDir::Install \
  #ENV PATH=$PATH:/htslib
  ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}
  ENV VCFANNO_DATA_DOCKER="/data"
- # Install Additional PLUGINS
- # Ensembl List : https://github.com/Ensembl/VEP_plugins
- #WORKDIR $VEP_PLUGINS
- #RUN wget https://raw.githubusercontent.com/konradjk/loftee/master/LoF.pm && \
-     #wget https://raw.githubusercontent.com/konradjk/loftee/master/context.pm && \
-     #wget https://raw.githubusercontent.com/konradjk/loftee/master/TissueExpression.pm && \
-     #wget https://raw.githubusercontent.com/konradjk/loftee/master/ancestral.pm && \
-     #wget https://raw.githubusercontent.com/konradjk/loftee/master/splice_module.pl && \
-     #wget https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/85/TSSDistance.pm
 
 # Clean Up
 RUN apt-get clean autoclean

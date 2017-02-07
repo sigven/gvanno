@@ -252,7 +252,7 @@ def extend_vcf_annotations(query_vcf,gvanno_directory):
                vep_csq_fields2index[v] = i
             i = i + 1
    else:
-      ##print warning
+      logger.warning('VCF does not have CSQ tag in its meta information lines')
       no_csq = 1
    
    for tag in vep_infotags_desc:
@@ -268,6 +268,10 @@ def extend_vcf_annotations(query_vcf,gvanno_directory):
    header_printed = 0
    for rec in vcf_reader:
       
+      if not rec.INFO.has_key('CSQ'):
+         variant_id = 'g.chr' + str(rec.CHROM) + ':' + str(rec.POS) + ':' + str(rec.REF) + '>' + str(rec.ALT)
+         logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor - variant will be skipped')
+         continue
       chromosome = rec.CHROM
       if current_chrom is None:
          current_chrom = chromosome
@@ -338,9 +342,6 @@ def extend_vcf_annotations(query_vcf,gvanno_directory):
       if rec.INFO.has_key('DBNSFP'):
          map_variant_effect_predictors(rec, vep_info_tags, extended_protein_info_tags, variant_effect_prediction_tags)
       all_info_vals = []
-      
-      #if extended_protein_info_tags.has_key('PROTEIN_POSITIONS'):
-         #utils.map_cancer_hotspots(cancer_hotspot_xref, vep_info_tags, extended_protein_info_tags)
        
       for k in vep_info_tags.keys():
          values = []
@@ -364,8 +365,7 @@ def extend_vcf_annotations(query_vcf,gvanno_directory):
                all_info_vals.append(str(k))
             else:
                all_info_vals.append(str(k) + '=' + str(existing_info_tags[k]))
-         
-      
+
       for k in extended_gene_disease_tags.keys():
          values = []
          for alt_allele in sorted(extended_gene_disease_tags[k].keys()):
