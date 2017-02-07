@@ -27,7 +27,7 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
    * Memory: 5GB
    * CPUs: 4
 
-For Docker version 1.13 on Mac OSX there is an option to change CPU's and RAM from UI and restart docker. This can be found through Docker Preferences from the toolbar:
+For Docker version 1.13 on Mac OSX there is an option to change CPU's and RAM from the UI and restart Docker. This can be found through Docker Preferences (Advanced) in the toolbar:
 
 <img src="Docker_VM_compute_config_MacOSX.png" height="450px" width="400px">
 
