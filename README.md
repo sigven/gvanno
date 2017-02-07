@@ -2,7 +2,7 @@
 
 ### Overview
 
-The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and interpretation of human germline calls. It accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno) (Pedersen et al., Genome Biology, 2016).
+The germline variant annotator (gvanno) is a stand-alone software package intended for analysis and interpretation of human germline calls. It accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The software extends basic gene and variant annotations from the [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno).
 
 #### Annotation resources included in gvanno - v0.1
 
