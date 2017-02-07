@@ -23,8 +23,7 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
 #### STEP 1: Installation of Docker
 
 1. TODO (Ghis): Bullet-proof Docker installation instructions (Mac, Windows(?), Linux)
-2. TODO (Ghis): Test that Docker is running
-2. TODO (Ghis): Recommended settings for Docker VM (Memory: 5GB, CPUs: 4), how to set them
+2. Important: The following is required for the Docker VM (Memory: 5GB, CPUs: 4), how to set them
 
 #### STEP 2: Installation of gvanno (GRCh37)
 
@@ -37,4 +36,8 @@ The germline variant annotator (gvanno) is a stand-alone software package intend
    * `docker pull sigven/gvanno:latest`
 4. Download the [gvanno pipeline script](https://github.com/sigven/gvanno/releases/download/v0.1/gvanno.sh) to `~/gvanno`
 
-#### STEP 3: Run examples
+#### STEP 3: Run example
+
+1. Download the [example VCF]() to `~/gvanno`
+2. Run gvanno annotation:
+   `./gvanno.sh ~/gvanno ~/gvanno example.vcf.gz example.annotated.vcf`
