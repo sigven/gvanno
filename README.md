@@ -6,7 +6,6 @@ The germline variant annotator (*gvanno*) is a simple, stand-alone software pack
 
 #### Annotation resources included in _gvanno_ - 0.2.0
 
-
 * [VEP v90](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor release 90 (GENCODE v27 as the gene reference dataset)
 * [dBNSFP v3.4](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (March 2017)
 * [gnomAD r1](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (March 2017)
@@ -50,7 +49,6 @@ A local installation of Python (it has been tested with [version 2.7.13](https:/
 2. Download and unpack the data bundle (approx. 15Gb) in the _gvanno_ directory
    * Download [the accompanying data bundle](https://drive.google.com/file/d/1uDFanR2LURgDjO_EB0ADzWBp5myE2rqn/) from Google Drive to `~/gvanno-X.X` (replace _X.X_ with the version number, e.g `~/gvanno-0.2.0`)
    * Unpack the data bundle, e.g. through the following Unix command: `gzip -dc gvanno.databundle.GRCh37.YYYYMMDD.tgz | tar xvf -`
-
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
 3. Pull the [_gvanno_ Docker image (0.2.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 4.2Gb):
    * `docker pull sigven/gvanno:0.2.0` (_gvanno_ annotation engine)
@@ -60,9 +58,7 @@ A local installation of Python (it has been tested with [version 2.7.13](https:/
 The _gvanno_ workflow accepts a single input file:
 
   * An unannotated (preferably single sample) VCF file (>= v4.2) with called germline variants (SNVs/InDels)
-
   * __NOTE__: GRCh37 is currently supported as the reference genome build
-
   * We __strongly__ recommend that the input VCF is compressed and indexed using [bgzip](http://www.htslib.org/doc/tabix.html) and [tabix](http://www.htslib.org/doc/tabix.html)
   * If the input VCF contains multi-allelic sites, these will be subject to [decomposition](http://genome.sph.umich.edu/wiki/Vt#Decompose)
 
