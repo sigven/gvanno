@@ -1,8 +1,8 @@
-## gvanno - *g*ermline *v*ariant *anno*tator
+## _gvanno_ - *g*ermline *v*ariant *anno*tator
 
 ### Overview
 
-The germline variant annotator (*gvanno*) is a stand-alone software package intended for analysis and interpretation of human germline calls. It accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The software extends basic annotations from [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date functional and clinical variant annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno).
+The germline variant annotator (*gvanno*) is a simple, stand-alone software package intended for analysis and interpretation of human germline calls. It accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The software extends basic annotations from [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html) with up-to-date functional and clinical variant annotations retrieved flexibly through [vcfanno](https://github.com/brentp/vcfanno). The workflow produces an annotated VCF and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record.
 
 #### Annotation resources included in _gvanno_ - 0.2.0
 
@@ -19,6 +19,10 @@ The germline variant annotator (*gvanno*) is a stand-alone software package inte
 * [UniProt/SwissProt KnowledgeBase 2017_10](http://www.uniprot.org) - Resource on protein sequence and functional information (October 2017)
 * [Pfam v31](http://pfam.xfam.org) - Database of protein families and domains (March 2017)
 * [TSGene v2.0](http://bioinfo.mc.vanderbilt.edu/TSGene/) - Tumor suppressor/oncogene database (November 2015)
+
+### Documentation
+
+Coming
 
 ### Getting started
 
