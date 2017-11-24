@@ -1,102 +1,195 @@
 ############################################################
-# Dockerfile to build Germline Variant Annotator (gvanno)
+# Dockerfile to build Personal Cancer Genome Reporter (PCGR)
 # Main software components:
-#  1. Variant Effect Predictor (VEP)
-#  2. vcfanno
-#  3. custom scripts (gvanno.tgz)
+#  1. Variant Effect Predictor (VEP 90)
+#  2. vcfanno (0.2.8)
+#  3. EBI-variation's vcf_validator
+#  4. vt (https://github.com/atks/vt) - tool set for short variant discovery in genetic sequence data
+#  5. R (version 3.4.1) and several R packages
+#  6. Custom PCGR Python scripts (gvanno.tgz) and R reporting package (pcgrr)
 ############################################################
 
-# use Debian as base image
-FROM debian:latest
 
-# set non interactive
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PACKAGE_UTILS="apt-utils wget curl nano unzip"
-ENV PACKAGE_BIO="tabix samtools libhts1 bedtools"
-ENV PACKAGE_DEV="perl debconf-utils build-essential gfortran python-dev python-pip gcc-multilib autoconf zlib1g-dev git libncurses5-dev libblas-dev liblapack-dev cpanminus"
-ENV PYTHON_MODULES="numpy cython scipy bx-python pyvcf cyvcf biopython"
+#FROM debian:jessie
+FROM ubuntu:16.04
+
+# update aptitude and install some required packages
+# a lot of them are required for Bio::DB::BigFile
+#RUN apt-get update && apt-get -y install apache2 build-essential cpanminus curl git libmysqlclient-dev libssl-dev manpages mysql-client openssl perl perl-base unzip vim wget sudo
+RUN apt-get update && apt-get -y install apache2 build-essential cpanminus curl git libmysqlclient-dev libpng-dev libssl-dev manpages mysql-client openssl perl perl-base unzip vim wget sudo
+# install ensembl dependencies
+RUN cpanm Test::Object PPI::Document Task::Weaken Test::SubCalls Test::Object DBI DBD::mysql Archive::Zip Perl::Critic
+
+###### INSTALL VARIANT EFFECT PREDICTOR (VEP)
+# create vep user
+RUN useradd -r -m -U -d /home/vep -s /bin/bash -c "VEP User" -p '' vep
+RUN usermod -a -G sudo vep
+USER vep
+ENV HOME /home/vep
+WORKDIR $HOME
+
+# clone git repositories
+RUN mkdir -p src
+WORKDIR $HOME/src
+RUN git clone https://github.com/Ensembl/ensembl.git
+RUN git clone https://github.com/Ensembl/ensembl-vep.git
+
+# get VEP dependencies
+WORKDIR $HOME/src
+RUN ensembl-vep/travisci/get_dependencies.sh
+ENV PERL5LIB $PERL5LIB:$HOME/src/bioperl-live-release-1-6-924
+ENV KENT_SRC $HOME/src/kent-335_base/src
+ENV HTSLIB_DIR $HOME/src/htslib
+ENV MACHTYPE x86_64
+ENV CFLAGS "-fPIC"
+ENV DEPS $HOME/src
+
+# and run the complilation/install as root
+USER root
+RUN ensembl-vep/travisci/build_c.sh
+
+# install htslib binaries (need bgzip, tabix)
+WORKDIR $HTSLIB_DIR
+RUN make install
+
+# install bioperl-ext, faster alignments for haplo
+WORKDIR $HOME/src
+RUN git clone https://github.com/bioperl/bioperl-ext.git
+WORKDIR bioperl-ext/Bio/Ext/Align/
+RUN perl -pi -e"s|(cd libs.+)CFLAGS=\\\'|\$1CFLAGS=\\\'-fPIC |" Makefile.PL
+RUN perl Makefile.PL
+RUN make
+RUN make install
+
+# install perl dependencies
+WORKDIR $HOME/src
+RUN cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
+RUN cpanm --installdeps --with-recommends --notest --cpanfile ensembl-vep/cpanfile .
+
+# switch back to vep user
+USER vep
+
+# update bash profile
+RUN echo >> $HOME/.profile && \
+echo PATH=$HOME/src/ensembl-vep:\$PATH >> $HOME/.profile && \
+echo export PATH >> $HOME/.profile
+
+# setup environment
+ENV PATH $HOME/src/ensembl-vep:$PATH
+
+# run INSTALL.pl
+WORKDIR $HOME/src/ensembl-vep
+RUN chmod u+x *.pl
+RUN ./INSTALL.pl -a a -l
+
+##### END INSTALL VEP
+
+##### INSTALL LATEST R VERSION
+
+RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+RUN sudo apt-get update \
+   && sudo apt-get -y install software-properties-common
+RUN sudo add-apt-repository 'deb [arch=amd64,i386] https://cran.rstudio.com/bin/linux/ubuntu xenial/'
 
 USER root
 WORKDIR /
 
-# Update the repository sources list
-RUN apt-get update
+RUN apt-get install apt-transport-https
 
-# Install tools used for compilation
-RUN apt-get install --yes --no-install-recommends $PACKAGE_UTILS $PACKAGE_DEV $PACKAGE_BIO
-RUN pip install -U setuptools
-RUN pip install $PYTHON_MODULES
+RUN apt-get update && apt-get install -y --no-install-recommends \
+ 		littler \
+ 		r-base \
+ 		r-base-dev \
+ 		r-recommended
 
-# FROM VCFANNO DOCKERFILE: Install vcfanno version 0.0.11
-RUN wget https://github.com/brentp/vcfanno/releases/download/v0.0.11/vcfanno_0.0.11_linux_amd64.tar.gz && \
-    tar xvzf vcfanno_0.0.11_linux_amd64.tar.gz && \
-    mv vcfanno_0.0.11_linux_amd64/vcfanno /usr/local/bin && \
-    rm vcfanno_0.0.11_linux_amd64.tar.gz && \
-    rm -rf vcfanno_0.0.11_linux_amd64
+#### END INSTALL R
 
+#USER root
 
-# Install VEP
-# https://gist.github.com/ckandoth/57d189f018b448774704d3b2191720a6
-RUN cpanm File::ShareDir::Install \
- && cpanm Data::UUID \
- && cpanm autodie \
- && cpanm Test::Fatal \
- && cpanm IPC::System::Simple \
- && cpanm File::Fetch \
- && cpanm File::Copy::Recursive \
- && cpanm LWP::Simple \
- && cpanm Bio::Root::Version \
- && cpanm Archive::Extract \
- && cpanm Archive::Zip \
- && cpanm CGI \
- && cpanm DBI \
- && cpanm Archive::Tar
-
-# && cpanm Bio::DB::HTS \
-
- VOLUME        /usr/local/share/vep/data
- ENV VEP_DATA="/usr/local/share/vep/data"
- ENV VEP_DATA_DOCKER="/usr/local/share/vep/data"
- ENV VEP_PATH="/usr/local/share/vep/vep"
- ENV VEP_PLUGINS="/usr/local/share/vep/Plugins"
- ENV VEP_INSTDIR="/ensembl-tools/scripts/variant_effect_predictor/"
- ENV PERL5LIB=$PERL5LIB:$VEP_PATH:$VEP_PLUGINS
- ENV PATH=$PATH:$VEP_PATH/htslib
- ENV SPECIES="homo_sapiens"
- ENV ASSEMBLY="GRCh37"
- ENV VEPPLUGIN="LoF,TSSDistance"
- RUN git clone -b release/85 https://github.com/Ensembl/ensembl-tools.git
- WORKDIR $VEP_INSTDIR
- RUN printf 'y\n' | perl INSTALL.pl --AUTO a --SPECIES $SPECIES --ASSEMBLY $ASSEMBLY --PLUGINS $VEPPLUGIN --DESTDIR $VEP_PATH --CACHEDIR $VEP_DATA
- RUN cp *.pl /usr/local/bin/
- #RUN git clone -b master --depth=1 https://github.com/samtools/htslib.git
- #WORKDIR $VEP_INSTDIR/htslib
- #RUN make
- #WORKDIR $VEP_INSTDIR
- #RUN git clone https://github.com/Ensembl/Bio-HTS.git biodbhts
- ############### FIX FOR VERSION 84 ##############
- WORKDIR /
+ENV PACKAGE_BIO="samtools libhts1 bedtools"
+ENV PACKAGE_DEV="gfortran python-dev python-pip gcc-multilib autoconf zlib1g-dev liblzma-dev libncurses5-dev libblas-dev liblapack-dev libcurl4-gnutls-dev libssh2-1-dev libxml2-dev vim libssl-dev libcairo2-dev libbz2-dev"
+#ENV PYTHON_MODULES="numpy cython scipy transvar bx-python pyvcf cyvcf cyvcf2 biopython crossmap pandas"
+ENV PYTHON_MODULES="numpy cython scipy bx-python pyvcf cyvcf biopython pandas toml"
 
 
- ADD gvanno.tgz /
- ENV PATH=$PATH:/gvanno
- #ENV PATH=$PATH:/htslib
- ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}
- ENV VCFANNO_DATA_DOCKER="/data"
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		apt-utils nano ca-certificates ed less locales vim-tiny fonts-texgyre \
+    $PACKAGE_DEV $PACKAGE_BIO \
+	&& rm -rf /var/lib/apt/lists/*
 
-# Clean Up
+
+## Install vcfanno version 0.2.8
+RUN wget https://github.com/brentp/vcfanno/releases/download/v0.2.8/vcfanno_linux64 && \
+    mv vcfanno_linux64 vcfanno && \
+    mv vcfanno /usr/local/bin && \
+    chmod 755 /usr/local/bin/vcfanno
+
+## Install Ensembl's Vcf-validator
+RUN wget https://github.com/EBIvariation/vcf-validator/releases/download/v0.6/vcf_validator && \
+mv vcf_validator /usr/local/bin && \
+chmod 755 /usr/local/bin/vcf_validator
+
+## Install pandoc (for HTML report generation)
+RUN wget https://github.com/jgm/pandoc/releases/download/1.19.1/pandoc-1.19.1-1-amd64.deb && \
+      dpkg -i pandoc* && \
+      rm pandoc* && \
+      apt-get clean
+
+USER root
+WORKDIR /
+
+## Install tools used for compilation
+RUN sudo -H pip install --upgrade pip
+RUN sudo -H pip install -U setuptools
+RUN sudo -H pip install cyvcf2
+RUN sudo -H pip install $PYTHON_MODULES
+#
+RUN wget http://ab-initio.mit.edu/nlopt/nlopt-2.4.2.tar.gz \
+		&& gzip -dc nlopt-2.4.2.tar.gz | tar xvf - \
+		&& cd nlopt-2.4.2 \
+    && ./configure \
+		&& make \
+		&& make install
+
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libpq-dev libxt-dev libudunits2-dev
+
+#RUN R -e "install.packages(c('dplyr','stringr','tidyr','httr','git2r','data.table','magrittr','devtools','htmltools','caret','randomForest','plotly','RcppTOML'), dependencies = T, repos = 'http://cran.us.r-project.org')"
+#RUN R -e "source(\"https://bioconductor.org/biocLite.R\"); biocLite(c('deconstructSigs', 'VariantAnnotation','BSgenome.Hsapiens.UCSC.hg19','GenomeInfoDb','GenomicRanges','S4Vectors'))"
+#RUN R -e "library(devtools); devtools::install_github('rstudio/DT'); devtools::install_github('hadley/ggplot2'); devtools::install_github('mjkallen/rlogging'); devtools::install_github('rstudio/crosstalk'); devtools::install_github('kent37/summarywidget')"
+
+
+RUN git clone https://github.com/atks/vt.git
+WORKDIR vt
+RUN make
+RUN make test
+RUN cp vt /usr/local/bin
+
+
+# Add local gvanno Python scripts/libraries
+ADD gvanno.tgz /
+ENV PATH=$PATH:/gvanno
+ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}
+ENV VCFANNO_DATA_DOCKER="/data"
+
+## Clean Up
 RUN apt-get clean autoclean
-RUN apt-get autoremove -y
 RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN rm -rf /var/lib/{dpkg,cache,log}
 
 VOLUME /workdir
 WORKDIR /workdir/
-
-
-### FROM VCFANNO DOCKERFILE
 USER root
 RUN mkdir /data && chmod 777 /data
 WORKDIR /data
 VOLUME /data
+
+USER root
 WORKDIR /
+RUN rm -f nlopt-2.4.2.tar.gz
+RUN rm -rf $HOME/src/ensembl-vep/t/
+RUN rm -f $HOME/src/v335_base.tar.gz
+RUN rm -f $HOME/src/release-1-6-924.zip
+RUN rm -rf /vt

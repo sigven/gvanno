@@ -1,0 +1,6 @@
+# gvanno configuration options (TOML).
+
+[other]
+n_vcfanno_proc = 4
+n_vep_forks = 4
+vep_skip_intergenic = false

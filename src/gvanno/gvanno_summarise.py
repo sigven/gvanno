@@ -3,31 +3,26 @@
 import csv
 import re
 import argparse
-import gvanno
 from itertools import izip, imap
-import transcript
-import uniprot
-import cyvcf
+from cyvcf2 import VCF, Writer
 import gzip
 import dbnsfp
 import os
-import utils
-import vcfutils
+import gvannoutils
 
-logger = gvanno.getlogger('gvanno-gene-annotate')
+logger = gvannoutils.getlogger('gvanno-gene-annotate')
 csv.field_size_limit(500 * 1024 * 1024)
 threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','Glu':'E','Gln':'Q','Gly':'G','His':'H','Ile':'I','Leu':'L','Lys':'K', 'Met':'M','Phe':'F','Pro':'P','Ser':'S','Thr':'T','Trp':'W','Tyr':'Y','Val':'V','Ter':'X'}
 
 
 def __main__():
    
-   parser = argparse.ArgumentParser(description='Gene annotations from gvanno annotation pipeline (SNVs/InDels)')
+   parser = argparse.ArgumentParser(description='Cancer gene annotations from PCGR pipeline (SNVs/InDels)')
    parser.add_argument('vcf_file', help='VCF file with VEP-annotated query variants (SNVs/InDels)')
-   parser.add_argument('gvanno_dir',help='gvanno base directory')
+   parser.add_argument('gvanno_dir',help='PCGR base directory')
    args = parser.parse_args()
 
    extend_vcf_annotations(args.vcf_file, args.gvanno_dir)
-
 
 def threeToOneAA(aa_change):
 	
@@ -37,380 +32,252 @@ def threeToOneAA(aa_change):
 	aa_change = re.sub(r'[A-Z]{1}fsX([0-9]{1,}|\?)','fs',aa_change)
 	return aa_change
 
-def hamming_distance(str1, str2):
-   """hamming1(str1, str2): Hamming distance. Count the number of differences
-   between equal length strings str1 and str2."""
-   assert len(str1) == len(str2)
-   return sum(c1 != c2 for c1, c2 in izip(str1, str2))
-
-def index_clinvar(clinvar_tsv_file_path):
-   clinvar_xref = {}
-   with gzip.open(clinvar_tsv_file_path, 'rb') as tsvfile:
-      cv_reader = csv.DictReader(tsvfile, delimiter='\t')
-      for rec in cv_reader:
-         
-         unique_traits = {}
-         traits = rec['trait']
-         for t in traits.split(';'):
-            t_lc = str(t).lower()
-            unique_traits[t_lc] = 1
-         origin = rec['variant_origin']            
-         
-         traits_curated = ';'.join(unique_traits.keys())
-         traits_origin = traits_curated + ' - ' + str(origin)
-         
-         clinvar_xref[rec['measureset_id']] = {}
-         clinvar_xref[rec['measureset_id']]['phenotype_origin'] = traits_origin
-         if rec['symbol'] == '-' or rec['symbol'] == 'more than 10':
-            rec['symbol'] = 'NA'
-         clinvar_xref[rec['measureset_id']]['genesymbol'] = rec['symbol']
-         
-   return clinvar_xref
-
-
-def map_variant_effect_predictors(rec, vep_info_tags, protein_info_tags, variant_prediction_tags):
-	
-	dbnsfp_predictions = dbnsfp.map_dbnsfp_predictions(rec.INFO['DBNSFP'])
-	variant_prediction_tags['EFFECT_PREDICTIONS'] = {}
-	
-	for alt_allele in vep_info_tags['Feature'].keys():
-		variant_prediction_tags['EFFECT_PREDICTIONS'][alt_allele] = '.'
-		gene_id = vep_info_tags['Gene'][alt_allele]
-		consequence = vep_info_tags['Consequence'][alt_allele]
-
-		dbnsfp_key = ''
-		if protein_info_tags.has_key('HGVSp_short'):
-			aa_change = protein_info_tags['HGVSp_short'][alt_allele]
-			dbnsfp_key = gene_id + ':' + str(aa_change)
-		else:
-			if re.search(r'splice_site',consequence):
-				dbnsfp_key = gene_id
-				
-		if dbnsfp_key != '':
-			if dbnsfp_predictions.has_key(dbnsfp_key):
-				variant_prediction_tags['EFFECT_PREDICTIONS'][alt_allele] = dbnsfp_predictions[dbnsfp_key]
-
-def get_protein_change_info(up_xref, up_feature_xref, swissprot_features, vep_info_tags, protein_info_tags):
+def map_variant_effect_predictors(rec, algorithms):
+    
+   dbnsfp_predictions = dbnsfp.map_dbnsfp_predictions(str(rec.INFO.get('DBNSFP').encode('utf-8')), algorithms)
+   if rec.INFO.get('Gene') is None or rec.INFO.get('Consequence') is None:
+      return
+   gene_id = str(rec.INFO.get('Gene').encode('utf-8'))
+   consequence = str(rec.INFO.get('Consequence').encode('utf-8'))
+     
+   dbnsfp_key = ''
+     
+   if not rec.INFO.get('HGVSp_short') is None:
+      aa_change = str(rec.INFO.get('HGVSp_short').encode('utf-8'))
+      dbnsfp_key = gene_id + ':' + str(aa_change)
+   else:
+      if re.search('splice_site',consequence):
+         dbnsfp_key = gene_id
    
-   for alt_allele in vep_info_tags['Feature'].keys():
-      tmp = {}
-      tmp['UNIPROT_ID'] = ''
-      tmp['SEQ_MATCH'] = '.'
-      tmp['SYMBOL'] = '.'
-      tmp['AA_position'] = '.'
-      aa_positions = {}
-        
-      protein_change = '.'
-      
-      protein_info_tags['CDS_CHANGE'] = {}
-      protein_info_tags['CDS_CHANGE'][alt_allele] = '.'
-      if vep_info_tags['HGVSc'][alt_allele] != '':
-         if 'splice_acceptor_variant' in vep_info_tags['Consequence'][alt_allele] or 'splice_donor_variant' in vep_info_tags['Consequence'][alt_allele]:
-            key = str(vep_info_tags['Consequence'][alt_allele]) + ':' + str(vep_info_tags['HGVSc'][alt_allele])
-            protein_info_tags['CDS_CHANGE'][alt_allele] = key
+   if dbnsfp_key != '':
+      if dbnsfp_predictions.has_key(dbnsfp_key):
+         rec.INFO['EFFECT_PREDICTIONS'] = dbnsfp_predictions[dbnsfp_key]
 
-      if vep_info_tags['Amino_acids'][alt_allele] == '.' or vep_info_tags['Protein_position'][alt_allele] == '.' or vep_info_tags['Protein_position'][alt_allele].startswith('-'):
-         continue
+def set_coding_change(rec):
    
-      for m in ['HGVSp_short','UNIPROT_ID']:
-         protein_info_tags[m] = {}
-         protein_info_tags[m][alt_allele] = '.'
-      for m in ['UNIPROT_FEATURE','PROTEIN_POSITIONS']:
-         protein_info_tags[m] = {}
-         protein_info_tags[m][alt_allele] = {}
+   for m in ['HGVSp_short','CDS_CHANGE']:
+      rec.INFO[m] = '.'
+   if not rec.INFO.get('HGVSc') is None:
+      if rec.INFO.get('HGVSc').encode('utf-8') != '.':
+         if 'splice_acceptor_variant' in rec.INFO.get('Consequence').encode('utf-8') or 'splice_donor_variant' in rec.INFO.get('Consequence').encode('utf-8'):
+            key = str(rec.INFO.get('Consequence').encode('utf-8')) + ':' + str(rec.INFO.get('HGVSc').encode('utf-8'))
+            rec.INFO['CDS_CHANGE'] = key
+   if rec.INFO.get('Amino_acids') is None or rec.INFO.get('Protein_position') is None or rec.INFO.get('Consequence') is None:
+      return
+   if not rec.INFO.get('Protein_position') is None:
+      if rec.INFO.get('Protein_position').encode('utf-8').startswith('-'):
+         return
 
-
-      uniprot.get_uniprot_data_by_transcript(up_xref, vep_info_tags['Feature'][alt_allele], tmp)
-      if '/' in vep_info_tags['Protein_position'][alt_allele]:
-         tmp['AA_position'] = vep_info_tags['Protein_position'][alt_allele].split('/')[0]
-      uniprot.get_domains_features_by_aapos(up_feature_xref, tmp, qtype = 'feature')
-      if tmp.has_key('UNIPROT_FEATURE'):
-         for feature in tmp['UNIPROT_FEATURE'].split('&'):
-            spkey = str(tmp['UNIPROT_ID']) + ':' + str(feature)
-            if swissprot_features.has_key(spkey):
-               if swissprot_features[spkey]['type_description'].startswith('Disulfide bond'):
-                  disulfid_start = int(swissprot_features[spkey]['aa_start'])
-                  disulfid_stop = int(swissprot_features[spkey]['aa_stop'])
-                  for aa_pos in aa_positions.keys():
-                     if aa_pos == disulfid_start or aa_pos == disulfid_stop:
-                        protein_info_tags['UNIPROT_FEATURE'][alt_allele][str(tmp['UNIPROT_ID'])	 + ':' + swissprot_features[spkey]['feature_type'] + ':' + str(disulfid_start) + '-' + str(disulfid_stop)] = 1
-               else:
-                  protein_info_tags['UNIPROT_FEATURE'][alt_allele][str(tmp['UNIPROT_ID']) + ':' + swissprot_features[spkey]['feature_type'] + ':' + str(swissprot_features[spkey]['aa_start']) + '-' + str(swissprot_features[spkey]['aa_stop'])] = 1
-      if vep_info_tags['HGVSp'][alt_allele] != '':
-         if ':' in vep_info_tags['HGVSp'][alt_allele]:
-            protein_identifier = vep_info_tags['HGVSp'][alt_allele].split(':')[0]
+   protein_change = '.'
+   if '/' in rec.INFO.get('Protein_position').encode('utf-8'):
+      protein_position = str(rec.INFO.get('Protein_position').split('/')[0].encode('utf-8'))
+      if '-' in protein_position:
+         if protein_position.split('-')[0].isdigit():
+            rec.INFO['Amino_acid_start'] = protein_position.split('-')[0]
+         if protein_position.split('-')[1].isdigit():
+            rec.INFO['Amino_acid_end'] = protein_position.split('-')[1]
+      else:
+         if protein_position.isdigit():
+            rec.INFO['Amino_acid_start'] = protein_position
+            rec.INFO['Amino_acid_end'] = protein_position
+   
+   if not rec.INFO.get('HGVSp') is None:
+      if rec.INFO.get('HGVSp').encode('utf-8') != '.':
+         if ':' in rec.INFO.get('HGVSp').encode('utf-8'):
+            protein_identifier = str(rec.INFO.get('HGVSp').encode('utf-8').split(':')[0])
             if protein_identifier.startswith('ENSP'):
-               protein_change_VEP = vep_info_tags['HGVSp'][alt_allele].split(':')[1]
+               protein_change_VEP = str(rec.INFO.get('HGVSp').encode('utf-8').split(':')[1])
                protein_change = threeToOneAA(protein_change_VEP)
-
-      if 'synonymous_variant' in vep_info_tags['Consequence'][alt_allele]:
-         protein_change = 'p.' + str(vep_info_tags['Amino_acids'][alt_allele]) + str(tmp['AA_position']) + str(vep_info_tags['Amino_acids'][alt_allele])
-      if 'stop_lost' in vep_info_tags['Consequence'][alt_allele] and '/' in str(vep_info_tags['Amino_acids'][alt_allele]):
-         protein_change = 'p.X' + str(tmp['AA_position']) + str(vep_info_tags['Amino_acids'][alt_allele].split('/')[1])
-      if '-' in tmp['AA_position'] and len(tmp['AA_position']) > 1:
-         aa_start = unicode(tmp['AA_position'].split('-')[0])
-         aa_stop = unicode(tmp['AA_position'].split('-')[1])
-         if aa_start.isnumeric() and aa_stop.isnumeric():
-            j = int(aa_start)
-            while j <= int(aa_stop):
-               if not aa_positions.has_key(j):
-                  aa_positions[j] = 1
-               j = j + 1
-      else:
-         if tmp['AA_position'] != '-':
-            position = unicode(tmp['AA_position'])
-            if position.isnumeric():
-               if not aa_positions.has_key(int(position)):
-                  aa_positions[int(position)] = 1
-                  
-      protein_info_tags['HGVSp_short'][alt_allele] = protein_change
-      protein_info_tags['PROTEIN_POSITIONS'][alt_allele] = aa_positions
-   
-      if vep_info_tags['Protein_position'][alt_allele] != '' and vep_info_tags['Amino_acids'][alt_allele] == '':
-         protein_info_tags['PROTEIN_POSITIONS'][alt_allele] = aa_positions
-      
-      exon_number = 'NA'
-      if vep_info_tags['EXON'][alt_allele] != '':
-         if '/' in vep_info_tags['EXON'][alt_allele]:
-            exon_number = str(vep_info_tags['EXON'][alt_allele]).split('/')[0]
-         
-      if vep_info_tags['HGVSc'][alt_allele] != '':
+  
+   if 'synonymous_variant' in rec.INFO.get('Consequence').encode('utf-8'):
+      protein_change = 'p.' + str(rec.INFO.get('Amino_acids').encode('utf-8')) + str(protein_position) + str(rec.INFO.get('Amino_acids').encode('utf-8'))
+      if 'stop_lost' in str(rec.INFO.get('Consequence').encode('utf-8')) and '/' in str(rec.INFO.get('Amino_acids').encode('utf-8')):
+         protein_change = 'p.X' + str(protein_position) + str(rec.INFO.get('Amino_acids').encode('utf-8')).split('/')[1]
+    
+   rec.INFO['HGVSp_short'] = protein_change
+   exon_number = 'NA'
+   if not rec.INFO.get('EXON') is None:
+      if rec.INFO.get('EXON').encode('utf-8') != '.':
+         if '/' in rec.INFO.get('EXON').encode('utf-8'):
+            exon_number = str(rec.INFO.get('EXON').encode('utf-8')).split('/')[0]
+  
+   if not rec.INFO.get('HGVSc') is None:
+      if rec.INFO.get('HGVSc').encode('utf-8') != '.':
          if protein_change != '.':
-            key = str(vep_info_tags['Consequence'][alt_allele]) + ':' + str(vep_info_tags['HGVSc'][alt_allele]) + ':exon' + str(exon_number) + ':' + str(protein_change)
-            protein_info_tags['CDS_CHANGE'][alt_allele] = key
+            key = str(rec.INFO.get('Consequence').encode('utf-8')) + ':' + str(rec.INFO.get('HGVSc').encode('utf-8')) + ':exon' + str(exon_number) + ':' + str(protein_change)
+            rec.INFO['CDS_CHANGE'] = key
 
+   return
 
-def get_gene_data(gene_xref, vep_info_tags, extended_gene_disease_tags, idtype = 'transcript'):
-  
-   for alt_allele in vep_info_tags['Feature'].keys():
-      annotations = ['gene_biotype','ccds','entrezgene','principal_isoform_flag','ensembl_gene_id','symbol','cancer_census_germline','tsgene','ts_oncogene','disgenet_associations']
-      gene_values = {}
-      for ann in annotations:
-         gene_values[ann] = {}
-      
-      tid = re.sub(r'\.[0-9]{1,}$','',vep_info_tags['Feature'][alt_allele])
-      if gene_xref.has_key(tid):
-         gene_trans_mappings = gene_xref[tid]
-         for k in gene_trans_mappings:
-            for ann in annotations:
-               if k[ann] != 'NA':
-                  gene_values[ann][re.sub(r' ','_',k[ann])] = 1
+def write_pass_vcf(annotated_vcf):
+   
+   out_vcf = re.sub(r'\.annotated\.vcf\.gz$','.annotated.pass.vcf',annotated_vcf)
+   vcf = VCF(annotated_vcf)
+   w = Writer(out_vcf, vcf)
+
+   num_rejected = 0
+   num_pass = 0
+   for rec in vcf:
+      if rec.FILTER is None or rec.FILTER == 'None':
+         w.write_record(rec)
+         num_pass += 1
       else:
-         if tid.startswith('NM_') or tid.startswith('ENST'):
-            logger.info("Could not find gene cross-reference information for transcript " + str(tid))
+         num_rejected +=1
+
+   vcf.close()
+   w.close()
    
-      for ann in ['ENTREZ_ID','APPRIS','CANCER_CENSUS_GERMLINE','TUMOR_SUPPRESSOR','ONCOGENE','ONCOSCORE','DISGENET']:
-         extended_gene_disease_tags[ann] = {}
-         extended_gene_disease_tags[ann][alt_allele] = {}
-      
-      for v in gene_values['entrezgene'].keys():
-         extended_gene_disease_tags['ENTREZ_ID'][alt_allele][v] = 1
-      
-      for v in gene_values['principal_isoform_flag'].keys():
-         extended_gene_disease_tags['APPRIS'][alt_allele][v] = 1
-      
-      for v in gene_values['cancer_census_germline'].keys():
-         extended_gene_disease_tags['CANCER_CENSUS_GERMLINE'][alt_allele][v] = 1
-      
-      for v in gene_values['tsgene'].keys():
-         extended_gene_disease_tags['TUMOR_SUPPRESSOR'][alt_allele][v] = 1
-      
-      for v in gene_values['ts_oncogene'].keys():
-         extended_gene_disease_tags['ONCOGENE'][alt_allele][v] = 1
-         
-      for v in gene_values['disgenet_associations'].keys():
-         extended_gene_disease_tags['DISGENET'][alt_allele][v] = 1
+   logger.info('Number of non-PASS/REJECTED variant calls: ' + str(num_rejected))
+   logger.info('Number of PASSed variant calls: ' + str(num_pass))
+   if num_pass == 0:
+      logger.warning('There are zero variants with a \'PASS\' filter in the VCF file')
+      os.system('bgzip -dc ' + str(annotated_vcf) + ' egrep \'^#\' > ' + str(out_vcf))
+   #else:
+   os.system('bgzip -f ' + str(out_vcf))
+   os.system('tabix -f -p vcf ' + str(out_vcf) + '.gz')
 
-def extend_vcf_annotations(query_vcf,gvanno_directory):
-   
-   pfam_domain_names = uniprot.index_pfam_names(gvanno_directory + '/data/pfam/pfam.domains.tsv.gz', ignore_versions = True)
-   swissprot_features = uniprot.index_uniprot_feature_names(gvanno_directory + '/data/uniprot/uniprot.features.tsv.gz')
-   pfam_xref = uniprot.index_pfam(gvanno_directory + '/data/pfam/pfam.uniprot.tsv.gz')
-   uniprot_feature_xref = uniprot.index_uniprot_features(gvanno_directory + '/data/uniprot/uniprot.features.tsv.gz')
+   return
 
-   gene_xref = None
-   up_xref = None
-   gene_xref = transcript.index_gene(gvanno_directory + '/data/gvanno.gene_xref.GRCh37.latest.tsv.gz', index = 'ensGene_transcript')
-   up_xref = uniprot.index_uniprot(gvanno_directory + '/data/uniprot/uniprot.xref.tsv.gz',index = 'ensGene_transcript')
-   clinvar_data = index_clinvar(gvanno_directory + '/data/clinvar/clinvar.tsv.gz')
-   out_prefix = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
-  
-   vep_infotags_desc = utils.read_infotag_file(gvanno_directory + '/data/vep_infotags.tsv')
-   gvanno_infotags_desc = utils.read_infotag_file(gvanno_directory + '/data/gvanno_infotags.tsv')
+def extend_vcf_annotations(query_vcf, gvanno_directory):
+   """
+   Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
+   1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
+   2. Cancer-relevant gene annotations, e.g. known oncogenes/tumor suppressors, known antineoplastic drugs interacting with a given protein etc.
+   3. Protein-relevant annotations, e.g. cancer hotspot mutations, functional protein features etc.
+   4. Variant effect predictions
+   """
 
-   vcf_reader = cyvcf.Reader(open(query_vcf, 'r'))
-   logger.info('Read query file')
+   ## read VEP and PCGR tags to be appended to VCF file
+   gvanno_vcf_infotags_meta = gvannoutils.read_infotag_file(os.path.join(gvanno_directory,'data','gvanno_infotags.tsv'))
+   out_vcf = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
+
+   vep_to_gvanno_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD','gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
+                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD','gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
+                     'AMR_AF':'AMR_AF_1KG','SAS_AF':'SAS_AF_1KG','EUR_AF':'EUR_AF_1KG','EAS_AF':'EAS_AF_1KG', 'AF':'GLOBAL_AF_1KG'}
+
+   vcf = VCF(query_vcf)
    vep_csq_index2fields = {}
    vep_csq_fields2index = {}
-   if 'CSQ' in vcf_reader.infos.keys():
-      if 'Format: ' in vcf_reader.infos['CSQ'].desc:
-         vep_tags = vcf_reader.infos['CSQ'].desc.split('Format: ')[1].split('|')
-         i = 0
-         for v in vep_tags:
-            if vep_infotags_desc.has_key(v):
-               vep_csq_index2fields[i] = v
-               vep_csq_fields2index[v] = i
-            i = i + 1
-   else:
-      logger.warning('VCF does not have CSQ tag in its meta information lines')
-      no_csq = 1
+   dbnsfp_prediction_algorithms = []
+   effect_predictions_description = ""
+   for e in vcf.header_iter():
+      header_element = e.info()
+      if 'ID' in header_element.keys():
+         identifier = str(header_element['ID']).encode('utf-8')
+         if identifier == 'CSQ' or identifier == 'DBNSFP':
+            description = str(header_element['Description']).encode('utf-8')
+            if 'Format: ' in description:
+               subtags = description.split('Format: ')[1].split('|')
+               if identifier == 'CSQ':
+                  i = 0
+                  for t in subtags:
+                     v = t
+                     if vep_to_gvanno_af.has_key(t):
+                        v = str(vep_to_gvanno_af[t])
+                     if gvanno_vcf_infotags_meta.has_key(v):
+                        vep_csq_index2fields[i] = v
+                        vep_csq_fields2index[v] = i
+                     i = i + 1
+               if identifier == 'DBNSFP':
+                  if len(subtags) > 7:
+                     effect_predictions_description = "Format: " + '|'.join(subtags[7:])
+                  i = 7
+                  while(i < len(subtags)):
+                     dbnsfp_prediction_algorithms.append(str(re.sub(r'((_score)|(_pred))"*$','',subtags[i])))
+                     i = i + 1
    
-   for tag in vep_infotags_desc:
-      if not tag in vcf_reader.infos.keys():
-         vcf_reader.infos[tag] = [tag,str(vep_infotags_desc[tag]['number']),str(vep_infotags_desc[tag]['type']),str(vep_infotags_desc[tag]['description'])]
-   for tag in gvanno_infotags_desc:
-      if not tag in vcf_reader.infos.keys():
-         vcf_reader.infos[tag] = [tag,str(gvanno_infotags_desc[tag]['number']),str(gvanno_infotags_desc[tag]['type']),str(gvanno_infotags_desc[tag]['description'])]
+   for tag in gvanno_vcf_infotags_meta:
+      vcf.add_info_to_header({'ID': tag, 'Description': str(gvanno_vcf_infotags_meta[tag]['description']),'Type':str(gvanno_vcf_infotags_meta[tag]['type']), 'Number': str(gvanno_vcf_infotags_meta[tag]['number'])})
+   vcf.add_info_to_header({'ID':'EFFECT_PREDICTIONS', 'Description':'Functional effect predictions from multiple algorithms (dbNSFP)','Type':'String', 'Number':'.'})
    
+   w = Writer(out_vcf, vcf)
    vcf_content = []
    current_chrom = None
    num_chromosome_records_processed = 0
    header_printed = 0
-   for rec in vcf_reader:
-      
-      if not rec.INFO.has_key('CSQ'):
-         variant_id = 'g.chr' + str(rec.CHROM) + ':' + str(rec.POS) + ':' + str(rec.REF) + '>' + str(rec.ALT)
-         logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor - variant will be skipped')
-         continue
-      chromosome = rec.CHROM
+   gvanno_xref_map = {'SYMBOL':1, 'ENTREZ_ID':2, 'UNIPROT_ID':3, 'APPRIS':4,'UNIPROT_ACC':5,'CHORUM_ID':6,'TUMOR_SUPPRESSOR':7,'ONCOGENE':8,
+                         'DISGENET_CUI':9,'MIM_PHENOTYPE_ID':10,'ONCOSCORE':11}
+   for rec in vcf:
+      all_transcript_consequences = []
       if current_chrom is None:
-         current_chrom = chromosome
+         current_chrom = str(rec.CHROM)
          num_chromosome_records_processed = 0
       else:
-         if chromosome != current_chrom:
-           
-            if len(vcf_content) > 0:
-               if header_printed == 0:
-                  vcfutils.print_vcf_meta(out_prefix, vcf_reader)
-                  header_printed = 1
-               out = open(out_prefix, 'a')
-               out.write('\n'.join(vcf_content))
-               out.write('\n')
-               out.close()
-               vcf_content = []
-            
+         if str(rec.CHROM) != current_chrom:
             logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))
-            current_chrom = chromosome
+            current_chrom = str(rec.CHROM)
             num_chromosome_records_processed = 0
+      if rec.INFO.get('CSQ') is None:
+         alt_allele = ','.join(rec.ALT).encode('utf-8')
+         pos = rec.start + 1
+         variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
+         logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (vep_skip_intergenic in config set to true?)  - variant will be skipped')
+         continue
+      gvanno_xref = {}
       num_chromosome_records_processed += 1
-      
-      fixed_fields_string = vcfutils.get_vcf_fixed_columns(rec)
-      sample_string = vcfutils.get_vcf_sample_columns(rec, vcf_reader)
-      vep_info_tags = {}
-      existing_info_tags = {}
-      extended_gene_disease_tags = {}
-      extended_protein_info_tags = {}
-      variant_effect_prediction_tags = {}
-      consequence_all = {}
-      
-      for keyw in sorted(vcf_reader.infos.keys()):
-         if keyw == 'CSQ':
+      if not rec.INFO.get('GVANNO_XREF') is None:
+         for transcript_onco_xref in rec.INFO.get('GVANNO_XREF').encode('utf-8').split(','):
+            xrefs = transcript_onco_xref.split('|')
+            ensembl_transcript_id = str(xrefs[0])
+            gvanno_xref[ensembl_transcript_id] = {}
+            for annotation in gvanno_xref_map.keys():
+               annotation_index = gvanno_xref_map[annotation]
+               if annotation_index > (len(xrefs) - 1):
+                  continue
+               if xrefs[annotation_index] != '':
+                  gvanno_xref[ensembl_transcript_id][annotation] = xrefs[annotation_index]
+      for identifier in ['CSQ','DBNSFP']:
+         if identifier == 'CSQ':
             num_picks = 0
-            for csq in rec.INFO['CSQ'].split(','):
+            for csq in rec.INFO.get(identifier).encode('utf-8').split(','):
                csq_fields =  csq.split('|')
-               alt_allele = str(csq_fields[0])
-               if not consequence_all.has_key(alt_allele):
-                  consequence_all[alt_allele] = {}
-               if csq_fields[vep_csq_fields2index['PICK']] == "1":
+               if csq_fields[vep_csq_fields2index['PICK']] == "1": ## only consider the primary/picked consequence when expanding with annotation tags
                   num_picks += 1
                   j = 0
+                  ## loop over all CSQ elements and set them in the vep_info_tags dictionary (for each alt_allele)
                   while(j < len(csq_fields)):
                      if vep_csq_index2fields.has_key(j):
-                        vep_info_tags[vep_csq_index2fields[j]] = {}
-                        if csq_fields[j] == '':
-                           vep_info_tags[vep_csq_index2fields[j]][alt_allele] = '.'
-                        else:
-                           vep_info_tags[vep_csq_index2fields[j]][alt_allele] = str(csq_fields[j])
+                        if csq_fields[j] != '':
+                           rec.INFO[vep_csq_index2fields[j]] = str(csq_fields[j])
+                           if vep_csq_index2fields[j] == 'Feature':
+                              ensembl_transcript_id = str(csq_fields[j])
+                              if gvanno_xref.has_key(ensembl_transcript_id):
+                                 for annotation in gvanno_xref_map.keys():
+                                    if annotation == 'UNIPROT_ACC' or annotation == 'SYMBOL':
+                                       continue
+                                    if gvanno_xref[ensembl_transcript_id].has_key(annotation):
+                                       if annotation == 'TUMOR_SUPPRESSOR' or annotation == 'ONCOGENE':
+                                          rec.INFO[annotation] = True
+                                       else:
+                                          rec.INFO[annotation] = gvanno_xref[ensembl_transcript_id][annotation]
+                           
                      j = j + 1
-               
+                  set_coding_change(rec)
                symbol = '.'
                if csq_fields[vep_csq_fields2index['SYMBOL']] != "":
                   symbol = str(csq_fields[vep_csq_fields2index['SYMBOL']])
-               entry = str(csq_fields[vep_csq_fields2index['Consequence']]) + ':' + str(symbol) + ':' + str(csq_fields[vep_csq_fields2index['Feature_type']]) + ':' + str(csq_fields[vep_csq_fields2index['Feature']]) + ':' + str(csq_fields[vep_csq_fields2index['BIOTYPE']])
-               consequence_all[alt_allele][entry] = 1
-            vcfutils.get_info_value(rec, keyw, vcf_reader, existing_info_tags)
-         else:
-            if rec.INFO.has_key(keyw):
-               vcfutils.get_info_value(rec, keyw, vcf_reader, existing_info_tags)
-      
-      vep_info_tags['VEP_ALL_CONSEQUENCE'] = {}
-      for alt_allele in consequence_all.keys():
-         vep_info_tags['VEP_ALL_CONSEQUENCE'][alt_allele] = ','.join(consequence_all[alt_allele].keys())
-      if vep_info_tags.has_key('Protein_position') and vep_info_tags.has_key('Amino_acids'):
-         get_protein_change_info(up_xref, uniprot_feature_xref, swissprot_features,vep_info_tags,extended_protein_info_tags)
-      get_gene_data(gene_xref, vep_info_tags, extended_gene_disease_tags)
-      if rec.INFO.has_key('DBNSFP'):
-         map_variant_effect_predictors(rec, vep_info_tags, extended_protein_info_tags, variant_effect_prediction_tags)
-      all_info_vals = []
-       
-      for k in vep_info_tags.keys():
-         values = []
-         for alt_allele in sorted(vep_info_tags[k].keys()):
-            if vep_info_tags[k][alt_allele] != '.':
-               values.append(vep_info_tags[k][alt_allele])
-         if(len(values) > 0):
-            all_info_vals.append(str(k) + '=' + ','.join(values))
-      
-      for k in variant_effect_prediction_tags.keys():
-         values = []
-         for alt_allele in sorted(variant_effect_prediction_tags[k].keys()):
-            if variant_effect_prediction_tags[k][alt_allele] != '.':
-               values.append(variant_effect_prediction_tags[k][alt_allele])
-         if(len(values) > 0):
-            all_info_vals.append(str(k) + '=' + ','.join(values))
-      
-      for k in existing_info_tags.keys():
-         if k != 'DBNSFP':
-            if existing_info_tags[k] == True:
-               all_info_vals.append(str(k))
-            else:
-               all_info_vals.append(str(k) + '=' + str(existing_info_tags[k]))
+               consequence_entry = str(csq_fields[vep_csq_fields2index['Consequence']]) + ':' + str(symbol) + ':' + str(csq_fields[vep_csq_fields2index['Feature_type']]) + ':' + str(csq_fields[vep_csq_fields2index['Feature']]) + ':' + str(csq_fields[vep_csq_fields2index['BIOTYPE']])
+               all_transcript_consequences.append(consequence_entry)
 
-      for k in extended_gene_disease_tags.keys():
-         values = []
-         for alt_allele in sorted(extended_gene_disease_tags[k].keys()):
-            if len(extended_gene_disease_tags[k][alt_allele].keys()) != 0:
-               values.append('&'.join(extended_gene_disease_tags[k][alt_allele].keys()))
-         if(len(values) > 0):
-            if k == 'ONCOGENE' or k == 'TUMOR_SUPPRESSOR':
-               all_info_vals.append(str(k))
-            else:
-               all_info_vals.append(str(k) + '=' + ','.join(values))
-         
-      for k in extended_protein_info_tags.keys():
-         values = []
-         if k == 'PROTEIN_POSITIONS':
-            continue
-         for alt_allele in sorted(extended_protein_info_tags[k].keys()):
-            if k == 'UNIPROT_FEATURE':
-               if len(extended_protein_info_tags[k][alt_allele].keys()) != 0:
-                  values.append('&'.join(extended_protein_info_tags[k][alt_allele].keys()))
-            else:
-               if extended_protein_info_tags[k][alt_allele] != '.':
-                  values.append(extended_protein_info_tags[k][alt_allele])
-         if(len(values) > 0):
-            all_info_vals.append(str(k) + '=' + ','.join(values))
+         if identifier == 'DBNSFP':
+            if not rec.INFO.get('DBNSFP') is None:
+               map_variant_effect_predictors(rec, dbnsfp_prediction_algorithms)
+      rec.INFO['VEP_ALL_CONSEQUENCE'] = ','.join(all_transcript_consequences)
+      w.write_record(rec)
+   w.close()
+   logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))
+   vcf.close()
 
-      info_string = ';'.join(all_info_vals)
-      vcfline = fixed_fields_string + '\t' + str(info_string)
-      if sample_string != '.':
-         vcfline = vcfline + '\t' + str(sample_string)
-      vcf_content.append(vcfline)
-   
-   if len(vcf_content) > 0:
-      if header_printed == 0:
-         vcfutils.print_vcf_meta(out_prefix, vcf_reader)
-         header_printed = 1
-      out = open(out_prefix, 'a')
-      out.write('\n'.join(vcf_content))
-      out.write('\n')
-      out.close()
-      vcf_content = []
-   
-      logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))
-   
-   os.system('bgzip -f ' + str(out_prefix))
-   os.system('tabix -f -p vcf ' + str(out_prefix) + '.gz')
+   if os.path.exists(out_vcf):
+      if os.path.getsize(out_vcf) > 0:
+         os.system('bgzip -f ' + str(out_vcf))
+         os.system('tabix -f -p vcf ' + str(out_vcf) + '.gz')
+         annotated_vcf = out_vcf + '.gz'
+         write_pass_vcf(annotated_vcf)
+      else:
+         gvannoutils.gvanno_error_message('No remaining PASS variants found in query VCF - exiting and skipping STEP 4 (gvanno-writer)', logger)
+   else:
+      gvannoutils.gvanno_error_message('No remaining PASS variants found in query VCF - exiting and skipping STEP 4 (gvanno-writer)', logger)
 
 if __name__=="__main__": __main__()
 
