@@ -45,7 +45,7 @@ A local installation of Python (it has been tested with [version 2.7.13](https:/
 
 #### STEP 2: Download _gvanno_
 
-1. Download and unpack the [latest software release (0.2.0)](https://github.com/sigven/gvanno/releases/tag/v0.2.0)
+1. Download and unpack the [latest software release (0.2.0)](https://github.com/sigven/gvanno/releases/tag/0.2.0)
 2. Download and unpack the data bundle (approx. 15Gb) in the _gvanno_ directory
    * Download [the accompanying data bundle](https://drive.google.com/file/d/1uDFanR2LURgDjO_EB0ADzWBp5myE2rqn/) from Google Drive to `~/gvanno-X.X` (replace _X.X_ with the version number, e.g `~/gvanno-0.2.0`)
    * Unpack the data bundle, e.g. through the following Unix command: `gzip -dc gvanno.databundle.GRCh37.YYYYMMDD.tgz | tar xvf -`
