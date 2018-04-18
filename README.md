@@ -107,7 +107,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contain an example VCF file. It also contain *gvanno* configuration file. Analysis of the example VCF can be performed by the following command:
 
-`python gvanno.py --input_vcf ~/gvanno-0.3.0/examples/example.vcf.gz`
+`python ~/gvanno-0.3.0/gvanno.py --input_vcf ~/gvanno-0.3.0/examples/example.vcf.gz`
 ` ~/gvanno-0.3.0 ~/gvanno-0.3.0/examples grch37 ~/gvanno-0.3.0/examples/gvanno_config.toml example`
 
 
