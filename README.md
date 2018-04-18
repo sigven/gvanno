@@ -58,7 +58,7 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
    * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
-3. Pull the [gvanno Docker image (0.3.0)](https://hub.docker.com/r/sigven/pcgr/) from DockerHub (approx 2.7Gb):
+3. Pull the [gvanno Docker image (0.3.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.7Gb):
    * `docker pull sigven/gvanno:0.3.0` (gvanno annotation engine)
 
 #### STEP 3: Input preprocessing
@@ -107,7 +107,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contain an example VCF file. It also contain *gvanno* configuration file. Analysis of the example VCF can be performed by the following command:
 
-`python pcgr.py --input_vcf ~/gvanno-0.3.0/examples/example.vcf.gz`
+`python gvanno.py --input_vcf ~/gvanno-0.3.0/examples/example.vcf.gz`
 ` ~/gvanno-0.3.0 ~/gvanno-0.3.0/examples grch37 ~/gvanno-0.3.0/examples/gvanno_config.toml example`
 
 
