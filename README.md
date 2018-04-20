@@ -6,13 +6,13 @@ The germline variant annotator (*gvanno*) is a simple, stand-alone software pack
 
 #### Annotation resources included in _gvanno_ - 0.3.0
 
-* [VEP v92](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor release 90 (GENCODE v19/v28 as the gene reference dataset)
+* [VEP v92](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor release 92 (GENCODE v19/v28 as the gene reference dataset)
 * [dBNSFP v3.5](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (August 2017)
 * [gnomAD r2](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (October 2017)
 * [dbSNP b150](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (February 2017)
 * [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013)
 * [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of clinically related variants (April 2018)
-* [DisGeNET](http://www.disgenet.org) - Database of gene-disease associations (May 2017)
+* [DisGeNET](http://www.disgenet.org) - Database of gene-disease associations (v5.0, May 2017)
 * [UniProt/SwissProt KnowledgeBase 2018_03](http://www.uniprot.org) - Resource on protein sequence and functional information (March 2018)
 * [Pfam v31](http://pfam.xfam.org) - Database of protein families and domains (March 2017)
 * [TSGene v2.0](http://bioinfo.mc.vanderbilt.edu/TSGene/) - Tumor suppressor/oncogene database (November 2015)
