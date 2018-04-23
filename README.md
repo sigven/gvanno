@@ -73,7 +73,7 @@ We __strongly__ recommend that the input VCF is compressed and indexed using [bg
 
 A few elements of the workflow can be figured using the *gvanno* configuration file, encoded in [TOML](https://github.com/toml-lang/toml) (an easy to read file format).
 
-The initial step of the workflow performs [VCF validation](https://github.com/EBIvariation/vcf-validator) on the input VCF file. This procedure is very strict, and often causes the workflow to return an error due to various violations of the VCF specification. If the user trusts that the most critical parts of the input VCF is properly encoded,  a setting in the configuration file (`vcf_validation = false`) can be used to turn of VCF validation.
+The initial step of the workflow performs [VCF validation](https://github.com/EBIvariation/vcf-validator) on the input VCF file. This procedure is very strict, and often causes the workflow to return an error due to various violations of the VCF specification. If the user trusts that the most critical parts of the input VCF is properly encoded,  a setting in the configuration file (`vcf_validation = false`) can be used to turn off VCF validation.
 
 #### STEP 5: Run example
 
