@@ -24,10 +24,6 @@ The germline variant annotator (*gvanno*) is a simple, stand-alone software pack
 	* VEP version 92
 	* Support for grch38
 	* Data bundle updates (ClinVar, UniProt)
-	* Scheduled improvement
-		* Retrieve genotype data (het/hom status)
-
-
 
 ### Getting started
 
