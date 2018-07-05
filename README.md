@@ -113,10 +113,10 @@ The _examples_ folder contains an example VCF file. It also contains a *gvanno* 
 
 This command will run the Docker-based *gvanno* workflow and produce the following output files in the _examples_ folder:
 
-  1. __example_gvanno.pass.vcf.gz (.tbi)__ - Bgzipped VCF file with rich set of functional/clinical annotations
-  2. __example_gvanno.pass.tsv.gz__ - Compressed TSV file with rich set of functional/clinical annotations
+  1. __example_gvanno_pass_grch37.vcf.gz (.tbi)__ - Bgzipped VCF file with rich set of functional/clinical annotations
+  2. __example_gvanno_pass_grch37.tsv.gz__ - Compressed TSV file with rich set of functional/clinical annotations
 
-Similar files are produced for all variants, not only variants with a *PASS* designation.
+Similar files are produced for all variants, not only variants with a *PASS* designation in the VCF FILTER column.
 
 Documentation of the various variant and gene annotations should be interrogated from the header of the annotated VCF file.
 
