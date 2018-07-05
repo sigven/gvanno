@@ -141,8 +141,8 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
    """
    Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
    1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
-   2. Cancer-relevant gene annotations, e.g. known oncogenes/tumor suppressors, known antineoplastic drugs interacting with a given protein etc.
-   3. Protein-relevant annotations, e.g. cancer hotspot mutations, functional protein features etc.
+   2. Gene annotations, e.g. known oncogenes/tumor suppressors, MIM phenotype associations etc
+   3. Protein-relevant annotations, e.g. c functional protein features etc.
    4. Variant effect predictions
    """
 
@@ -177,8 +177,6 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
                         vep_csq_fields2index[v] = i
                      i = i + 1
                if identifier == 'DBNSFP':
-                  if len(subtags) > 7:
-                     effect_predictions_description = "Format: " + '|'.join(subtags[7:])
                   i = 7
                   while(i < len(subtags)):
                      dbnsfp_prediction_algorithms.append(str(re.sub(r'((_score)|(_pred))"*$','',subtags[i])))
@@ -191,8 +189,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   gvanno_xref_map = {'SYMBOL':1, 'ENTREZ_ID':2, 'UNIPROT_ID':3, 'APPRIS':4,'UNIPROT_ACC':5,'CHORUM_ID':6,'TUMOR_SUPPRESSOR':7,'ONCOGENE':8,
-                         'DISGENET_CUI':9,'MIM_PHENOTYPE_ID':10}
+   pcgr_onco_xref_map = {'SYMBOL':1, 'ENTREZ_ID':2, 'UNIPROT_ID':3, 'APPRIS':4,'UNIPROT_ACC':5,'CHORUM_ID':6,'TUMOR_SUPPRESSOR':7,'ONCOGENE':8,'DISGENET_CUI':10,'MIM_PHENOTYPE_ID':14}
    for rec in vcf:
       all_transcript_consequences = []
       if current_chrom is None:
@@ -209,19 +206,19 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
          variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
          logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (vep_skip_intergenic in config set to true?)  - variant will be skipped')
          continue
-      gvanno_xref = {}
+      pcgr_onco_xref = {}
       num_chromosome_records_processed += 1
-      if not rec.INFO.get('GVANNO_XREF') is None:
-         for transcript_onco_xref in rec.INFO.get('GVANNO_XREF').split(','):
+      if not rec.INFO.get('PCGR_ONCO_XREF') is None:
+         for transcript_onco_xref in rec.INFO.get('PCGR_ONCO_XREF').split(','):
             xrefs = transcript_onco_xref.split('|')
             ensembl_transcript_id = str(xrefs[0])
-            gvanno_xref[ensembl_transcript_id] = {}
-            for annotation in gvanno_xref_map.keys():
-               annotation_index = gvanno_xref_map[annotation]
+            pcgr_onco_xref[ensembl_transcript_id] = {}
+            for annotation in pcgr_onco_xref_map.keys():
+               annotation_index = pcgr_onco_xref_map[annotation]
                if annotation_index > (len(xrefs) - 1):
                   continue
                if xrefs[annotation_index] != '':
-                  gvanno_xref[ensembl_transcript_id][annotation] = xrefs[annotation_index]
+                  pcgr_onco_xref[ensembl_transcript_id][annotation] = xrefs[annotation_index]
       for identifier in ['CSQ','DBNSFP']:
          if identifier == 'CSQ':
             num_picks = 0
@@ -237,15 +234,15 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
                            rec.INFO[vep_csq_index2fields[j]] = str(csq_fields[j])
                            if vep_csq_index2fields[j] == 'Feature':
                               ensembl_transcript_id = str(csq_fields[j])
-                              if ensembl_transcript_id in gvanno_xref:
-                                 for annotation in gvanno_xref_map.keys():
-                                    if annotation == 'UNIPROT_ACC' or annotation == 'SYMBOL':
+                              if ensembl_transcript_id in pcgr_onco_xref:
+                                 for annotation in pcgr_onco_xref_map.keys():
+                                    if annotation == 'UNIPROT_ACC':
                                        continue
-                                    if annotation in gvanno_xref[ensembl_transcript_id]:
+                                    if annotation in pcgr_onco_xref[ensembl_transcript_id]:
                                        if annotation == 'TUMOR_SUPPRESSOR' or annotation == 'ONCOGENE':
                                           rec.INFO[annotation] = True
                                        else:
-                                          rec.INFO[annotation] = gvanno_xref[ensembl_transcript_id][annotation]
+                                          rec.INFO[annotation] = pcgr_onco_xref[ensembl_transcript_id][annotation]
                            if vep_csq_index2fields[j] == 'DOMAINS':
                               domain_identifiers = str(csq_fields[j]).split('&')
                               for v in domain_identifiers:

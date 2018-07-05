@@ -37,11 +37,11 @@ def is_valid_vcf(input_vcf, logger):
    Function that reads the output file of EBIvariation/vcf-validator and reports potential errors and validation status 
    """
    
-   logger.info('Validating VCF file with EBIvariation/vcf-validator')
+   logger.info('Validating VCF file with EBIvariation/vcf-validator (version 0.6)')
    vcf_validation_output_file = '/workdir/output/' + re.sub(r'(\.vcf$|\.vcf\.gz$)','.vcf_validator_output',os.path.basename(input_vcf))
-   command_v42 = 'vcf_validator --input ' + str(input_vcf) + ' > ' + str(vcf_validation_output_file)
+   command_v42 = 'vcf_validator --input ' + str(input_vcf) + ' > ' + str(vcf_validation_output_file) + ' 2>&1'
    if input_vcf.endswith('.gz'):
-      command_v42 = 'bgzip -dc ' + str(input_vcf) + ' | vcf_validator  > ' + str(vcf_validation_output_file)
+      command_v42 = 'bgzip -dc ' + str(input_vcf) + ' | vcf_validator  > ' + str(vcf_validation_output_file) + ' 2>&1'
    os.system(command_v42)
       
    validation_results = {}
@@ -50,7 +50,7 @@ def is_valid_vcf(input_vcf, logger):
    if os.path.exists(vcf_validation_output_file):
       f = open(vcf_validation_output_file,'r')
       for line in f:
-         if not re.search(r' \(warning\)$|^Reading from ',line.rstrip()): ## ignore warnings
+         if not re.search(r' \(warning\)$|Reading from ',line.rstrip()): ## ignore warnings
             if line.startswith('Line '):
                validation_results['error_messages'].append('ERROR: ' + line.rstrip())
             if 'the input file is valid' in line.rstrip(): ## valid VCF
