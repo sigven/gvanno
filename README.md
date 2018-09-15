@@ -58,7 +58,7 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
 1. Download and unpack the [latest software release (0.4.0)](https://github.com/sigven/gvanno/releases/tag/v0.4.0)
 2. Download and unpack the assembly-specific data bundle in the PCGR directory
    * [grch37 data bundle](https://drive.google.com/file/d/15NbYwwnb8J5IGhL6-RJXpAeQ-xqzjc5F/) (approx 9Gb)
-   * [grch38 data bundle](https://drive.google.com/file/d/1hr4MShsEh2Xf-_bBgDPi7t-vj32XrWJ0/) (approx 9Gb)
+   * [grch38 data bundle](https://drive.google.com/open?id=1uL9VKgHUyz3ZCFzXQhZaTo5SqObjxRFW) (approx 13Gb)
    * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
