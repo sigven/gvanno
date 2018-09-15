@@ -11,21 +11,25 @@ import getpass
 import platform
 import toml
 
-version = '0.3.1'
+
+gvanno_version = '0.4.0'
+db_version = 'GVANNO_DB_VERSION = 20180915'
+vep_version = '93'
+global vep_assembly
 
 def __main__():
    
    parser = argparse.ArgumentParser(description='Germline variant annotation (gvanno) workflow for clinical and functional interpretation of germline nucleotide variants',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
    parser.add_argument('--input_vcf', dest = "input_vcf", help='VCF input file with somatic query variants (SNVs/InDels)')
    parser.add_argument('--force_overwrite', action = "store_true", help='The script will fail with an error if the output file already exists. Force the overwrite of existing result files by using this flag')
-   parser.add_argument('--version', action='version', version='%(prog)s ' + str(version))
+   parser.add_argument('--version', action='version', version='%(prog)s ' + str(gvanno_version))
    parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-0.2.0')
    parser.add_argument('output_dir',help='Output directory')
    parser.add_argument('genome_assembly',choices = ['grch37','grch38'], help='grch37 or grch38')
    parser.add_argument('configuration_file',help='gvanno configuration file (TOML format)')
    parser.add_argument('sample_id',help="Sample identifier - prefix for output files")
    
-   docker_image_version = 'sigven/gvanno:' + str(version)
+   docker_image_version = 'sigven/gvanno:' + str(gvanno_version)
    args = parser.parse_args()
    
    overwrite = 0
@@ -49,7 +53,7 @@ def __main__():
       gvanno_error_message(err_msg,logger)
    host_directories = verify_input_files(args.input_vcf, args.configuration_file, config_options, args.gvanno_dir, args.output_dir, args.sample_id, args.genome_assembly, overwrite, logger)
 
-   run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.genome_assembly, version)
+   run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.genome_assembly, gvanno_version)
 
 
 def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger):
@@ -74,7 +78,7 @@ def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger)
       gvanno_error_message(err_msg, logger)
    
    
-   boolean_tags = ['vep_skip_intergenic', 'vcf_validation']
+   boolean_tags = ['vep_skip_intergenic', 'vcf_validation', 'lof_prediction']
    integer_tags = ['n_vcfanno_proc','n_vep_forks']
    for section in ['other']:
       if section in user_options:
@@ -192,8 +196,7 @@ def verify_input_files(input_vcf, configuration_file, gvanno_config_options, bas
    f_rel_not = open(rel_notes_file,'r')
    compliant_data_bundle = 0
    for line in f_rel_not:
-      version_check = 'GVANNO_DB_VERSION = 20180629'
-      if version_check in line:
+      if db_version in line:
          compliant_data_bundle = 1
    
    f_rel_not.close()
@@ -243,7 +246,7 @@ def getlogger(logger_name):
    
    return logger
 
-def run_gvanno(host_directories, docker_image_version, config_options, sample_id, genome_assembly, version):
+def run_gvanno(host_directories, docker_image_version, config_options, sample_id, genome_assembly, gvanno_version):
    """
    Main function to run the gvanno workflow using Docker
    """
@@ -252,10 +255,11 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_vcf = 'None'
    output_pass_vcf = 'None'
    uid = ''
-   vep_version = '92'
+   vep_assembly = 'GRCh38'
    gencode_version = 'release 28'
    if genome_assembly == 'grch37':
       gencode_version = 'release 19'
+      vep_assembly = 'GRCh37'
    logger = getlogger('gvanno-get-OS')
    if platform.system() == 'Linux' or platform.system() == 'Darwin' or sys.platform == 'darwin' or sys.platform == 'linux2' or sys.platform == 'linux':
       uid = os.getuid()
@@ -268,6 +272,9 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       uid = 'root'
       
    vepdb_dir_host = os.path.join(str(host_directories['db_dir_host']),'.vep')
+   data_dir = '/data'
+   output_dir = '/workdir/output'
+   vep_dir = '/usr/local/share/vep/data'
 
    input_vcf_docker = 'None'
    input_conf_docker = 'None'
@@ -280,47 +287,49 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    docker_command_run1 = 'NA'
    if host_directories['input_vcf_dir_host'] != 'NA':
       docker_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" + str(host_directories['base_dir_host']) + ":/data -v=" + str(vepdb_dir_host) + ":/usr/local/share/vep/data -v=" + str(host_directories['input_vcf_dir_host']) + ":/workdir/input_vcf -v=" + str(host_directories['input_conf_dir_host']) + ":/workdir/input_conf -v=" + str(host_directories['output_dir_host']) + ":/workdir/output -w=/workdir/output " + str(docker_image_version) + " sh -c \""
-      
    docker_command_run2 = "docker run --rm -t -u " + str(uid) + " -v=" + str(host_directories['base_dir_host']) + ":/data -v=" + str(host_directories['output_dir_host']) + ":/workdir/output -w=/workdir " + str(docker_image_version) + " sh -c \""
-   
+   docker_command_run_end = '\"'
+
    
    ## verify VCF and CNA segment file
    logger = getlogger('gvanno-validate-input')
    logger.info("STEP 0: Validate input data")
-   vcf_validate_command = str(docker_command_run1) + "gvanno_validate_input.py /data " + str(input_vcf_docker) + " " + str(input_conf_docker) + " " + str(genome_assembly) + "\""
+   vcf_validate_command = str(docker_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + str(input_conf_docker) + " " + str(genome_assembly) + docker_command_run_end
+
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
    
    if not input_vcf_docker == 'None':
       
       ## Define input, output and temporary file names
-      output_vcf = '/workdir/output/' + str(sample_id) + '_gvanno_' + str(genome_assembly) + '.vcf.gz'
-      output_tsv = '/workdir/output/' + str(sample_id) + '_gvanno_'  + str(genome_assembly) + '.tsv'
-      output_pass_vcf = '/workdir/output/' + str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.vcf.gz'
-      output_pass_tsv = '/workdir/output/' + str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.tsv'
-      input_vcf_gvanno_ready = '/workdir/output/' + re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_ready.vcf.gz',host_directories['input_vcf_basename_host'])
+      output_vcf = os.path.join(output_dir, str(sample_id) + '_gvanno_' + str(genome_assembly) + '.vcf.gz')
+      output_tsv = os.path.join(output_dir, str(sample_id) + '_gvanno_'  + str(genome_assembly) + '.tsv')
+      output_pass_vcf = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.vcf.gz')
+      output_pass_tsv = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.tsv')
+      input_vcf_gvanno_ready = os.path.join(output_dir, re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_ready.vcf.gz',host_directories['input_vcf_basename_host']))
       vep_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_vep.vcf',input_vcf_gvanno_ready)
       vep_vcfanno_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_vep.vcfanno.vcf',input_vcf_gvanno_ready)
       vep_tmp_vcf = vep_vcf + '.tmp'
       vep_vcfanno_annotated_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated',vep_vcfanno_vcf) + '.gz'
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
-      fasta_assembly = "/usr/local/share/vep/data/homo_sapiens/92_GRCh37/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz"
-      vep_assembly = 'GRCh37'
-      if genome_assembly == 'grch38':
-         vep_assembly = 'GRCh38'
-         fasta_assembly = "/usr/local/share/vep/data/homo_sapiens/92_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
-      vep_options = "--vcf --check_ref --flag_pick_allele --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " --hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --regulatory --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq --plugin LoF --dir /usr/local/share/vep/data"
+      fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
+      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " --hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --regulatory --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq --plugin LoF --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
-      vep_main_command = str(docker_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_tmp_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + "\""
-      vep_sed_command =  str(docker_command_run1) + "sed -r 's/:p\.[A-Z]{1}[a-z]{2}[0-9]+=//g' " + str(vep_tmp_vcf) + " > " + str(vep_vcf) + "\""
+      if config_options['other']['lof_prediction'] == 1:
+         vep_options = vep_options + " --plugin LoF"
+      vep_main_command = str(docker_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_tmp_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
+      vep_sed_command =  str(docker_command_run1) + "sed -r 's/:p\.[A-Z]{1}[a-z]{2}[0-9]+=//g' " + str(vep_tmp_vcf) + " > " + str(vep_vcf) + docker_command_run_end
       vep_bgzip_command = str(docker_command_run1) + "bgzip -f " + str(vep_vcf) + "\""
       vep_tabix_command = str(docker_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + "\""
       logger = getlogger('gvanno-vep')
    
       print()
-      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
+      if config_options['other']['lof_prediction'] == 1:
+         logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ") including loss-of-function prediction")
+      else:
+         logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
       check_subprocess(vep_main_command)
       check_subprocess(vep_sed_command)
       check_subprocess(vep_bgzip_command)
@@ -331,7 +340,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger('gvanno-vcfanno')
       logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, UniProtKB)")
-      gvanno_vcfanno_command = str(docker_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --pcgr_onco_xref " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " /data/data/" + str(genome_assembly) + "\""
+      gvanno_vcfanno_command = str(docker_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
    
@@ -339,7 +348,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Gene annotations with gvanno-summarise")
-      gvanno_summarise_command = str(docker_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz /data/data/" + str(genome_assembly) + "\""
+      gvanno_summarise_command = str(docker_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       
@@ -347,7 +356,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       create_output_vcf_command2 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + '.tbi ' + str(output_vcf) + '.tbi' + "\""
       create_output_vcf_command3 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + ' ' + str(output_pass_vcf) + "\""
       create_output_vcf_command4 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + '.tbi ' + str(output_pass_vcf) + '.tbi' + "\""
-      clean_command = str(docker_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + "\""
+      clean_command = str(docker_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + docker_command_run_end
       check_subprocess(create_output_vcf_command1)
       check_subprocess(create_output_vcf_command2)
       check_subprocess(create_output_vcf_command3)
@@ -357,8 +366,8 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger("gvanno-vcf2tsv")
       logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsv")
-      gvanno_vcf2tsv_command_pass = str(docker_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + "\""
-      gvanno_vcf2tsv_command_all = str(docker_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + "\""
+      gvanno_vcf2tsv_command_pass = str(docker_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
+      gvanno_vcf2tsv_command_all = str(docker_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS variants only")
       check_subprocess(gvanno_vcf2tsv_command_pass)
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS and non-PASS variants)")

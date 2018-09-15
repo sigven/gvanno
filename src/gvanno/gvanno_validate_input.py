@@ -7,7 +7,7 @@ import os
 import subprocess
 import logging
 import sys
-import gvannoutils
+import annoutils
 import pandas as np
 import toml
 from cyvcf2 import VCF
@@ -25,12 +25,6 @@ def __main__():
    ret = validate_gvanno_input(args.gvanno_dir, args.input_vcf, args.configuration_file, args.genome_assembly)
    if ret != 0:
       sys.exit(-1)
-
-def gvanno_error_message(message, logger):
-   logger.error('')
-   logger.error(message)
-   logger.error('')
-   return -1
 
 def is_valid_vcf(input_vcf, logger):
    """
@@ -61,13 +55,13 @@ def is_valid_vcf(input_vcf, logger):
       os.system('rm -f ' + str(vcf_validation_output_file))
    else:
       err_msg = str(vcf_validation_output_file) + ' does not exist'
-      return gvanno_error_message(err_msg, logger)
+      return annoutils.error_message(err_msg, logger)
    
    if validation_results['validation_status'] == 0:
       error_string_42 = '\n'.join(validation_results['error_messages'])
       validation_status = 'According to the VCF specification, the VCF file (' + str(input_vcf) + ') is NOT valid'
       err_msg = validation_status + ':\n' + str(error_string_42)
-      return gvanno_error_message(err_msg, logger)
+      return annoutils.error_message(err_msg, logger)
    else:
       validation_status = 'According to the VCF specification, the VCF file ' + str(input_vcf) + ' is valid'
       logger.info(validation_status)
@@ -80,7 +74,7 @@ def check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, l
    If any coinciding tags, an error will be returned
    """
    
-   gvanno_infotags_desc = gvannoutils.read_infotag_file(os.path.join(gvanno_directory,'data',genome_assembly,'gvanno_infotags.tsv'))
+   gvanno_infotags_desc = annoutils.read_infotag_file(os.path.join(gvanno_directory,'data',genome_assembly,'gvanno_infotags.tsv'))
          
    vcf = VCF(input_vcf)
    logger.info('Checking if existing INFO tags of query VCF file coincide with gvanno INFO tags')
@@ -91,7 +85,7 @@ def check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, l
          if header_element['HeaderType'] == 'INFO':
             if header_element['ID'] in gvanno_infotags_desc.keys():
                err_msg = 'INFO tag ' + str(header_element['ID']) + ' in the query VCF coincides with a VCF annotation tag produced by gvanno - please remove or rename this tag in your query VCF'
-               return gvanno_error_message(err_msg, logger)
+               return annoutils.error_message(err_msg, logger)
    
    logger.info('No query VCF INFO tags coincide with gvanno INFO tags')
    return ret
@@ -150,8 +144,8 @@ def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, genom
    3. Check that if VCF have variants with multiple alternative alleles (e.g. 'A,T') run vt decompose
    4. Any genotype data from VCF input file is stripped, and the resulting VCF file is sorted and indexed (bgzip + tabix) 
    """
-   logger = gvannoutils.getlogger('gvanno-validate-input')
-   config_options = gvannoutils.read_config_options(configuration_file, gvanno_directory, genome_assembly, logger)
+   logger = annoutils.getlogger('gvanno-validate-input')
+   config_options = annoutils.read_config_options(configuration_file, gvanno_directory, genome_assembly, logger, wflow = 'gvanno')
 
    
    if not input_vcf == 'None':

@@ -1,7 +1,17 @@
 # gvanno configuration options (TOML).
 
 [other]
+## Keep/skip VCF validation by https://github.com/EBIvariation/vcf-validator. The vcf-validator checks
+## that the input VCF is properly encoded. Since the vcf-validator is strict, and with error messages
+## that is not always self-explanatory, the users can skip validation if they are confident that the
+## most critical parts of the VCF are properly encoded
 vcf_validation = true
+## Number of processes for vcfanno
 n_vcfanno_proc = 4
+## Number of forks for VEP
 n_vep_forks = 4
+## Ignore/skip intergenic variants
 vep_skip_intergenic = false
+## Predict loss-of-function variants using VEP's LofTee plugin
+## Note that turning this on (true) are likely to increase VEP's run time substantially
+lof_prediction = true
