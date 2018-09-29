@@ -184,11 +184,6 @@ ADD loftee.tgz $OPT/src/ensembl-vep/modules
 ## END INSTALL VEP
 
 
-ADD gvanno.tgz /
-ENV PATH=$PATH:/gvanno
-ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}
-ENV VCFANNO_DATA_DOCKER="/data"
-
 USER root
 WORKDIR /
 
@@ -219,5 +214,10 @@ RUN rm -rf $HOME/src/ensembl-vep/t/
 RUN rm -f $HOME/src/v335_base.tar.gz
 RUN rm -f $HOME/src/release-1-6-924.zip
 RUN rm -rf /vt
+RUN rm -rf /samtools-1.9.tar.bz2
 
 
+ADD gvanno.tgz /
+ENV PATH=$PATH:/gvanno
+ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}
+ENV VCFANNO_DATA_DOCKER="/data"

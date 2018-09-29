@@ -21,13 +21,16 @@ def __main__():
    parser.add_argument("--dbnsfp",action = "store_true", help="Annotate VCF with annotations from database of non-synonymous functional predictions")
    parser.add_argument("--uniprot",action = "store_true", help="Annotate VCF with protein functional features from the UniProt Knowledgebase")
    parser.add_argument("--gvanno_xref",action = "store_true", help="Annotate VCF with transcript annotations from gvanno (protein complexes, disease associations, etc)")
+   parser.add_argument("--gwas",action = "store_true", help="Annotate VCF with against known loci associated with cancer, as identified from genome-wide association studies (GWAS)")
+   parser.add_argument("--cancer_hotspots",action = "store_true", help="Annotate VCF with mutation hotspots from cancerhotspots.org")
+
    
    args = parser.parse_args()
    query_info_tags = get_vcf_info_tags(args.query_vcf)
    vcfheader_file = args.out_vcf + '.tmp.' + str(random.randrange(0,10000000)) + '.header.txt'
    conf_fname = args.out_vcf + '.tmp.conf.toml'
    print_vcf_header(args.query_vcf, vcfheader_file, chromline_only = False)
-   run_vcfanno(args.num_processes, args.query_vcf, query_info_tags, vcfheader_file, args.gvanno_db_dir, conf_fname, args.out_vcf, args.clinvar, args.dbnsfp, args.uniprot, args.gvanno_xref)
+   run_vcfanno(args.num_processes, args.query_vcf, query_info_tags, vcfheader_file, args.gvanno_db_dir, conf_fname, args.out_vcf, args.clinvar, args.dbnsfp, args.uniprot, args.gvanno_xref,args.gwas, args.cancer_hotspots)
 
 
 def prepare_vcfanno_configuration(vcfanno_data_directory, conf_fname, vcfheader_file, logger, datasource_info_tags, query_info_tags, datasource):
@@ -37,15 +40,19 @@ def prepare_vcfanno_configuration(vcfanno_data_directory, conf_fname, vcfheader_
    append_to_conf_file(datasource, datasource_info_tags, vcfanno_data_directory, conf_fname)
    append_to_vcf_header(vcfanno_data_directory, datasource, vcfheader_file)
 
-def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvanno_db_directory, conf_fname, output_vcf, clinvar, dbnsfp, uniprot, gvanno_xref):
+def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvanno_db_directory, conf_fname, output_vcf, clinvar, dbnsfp, uniprot, gvanno_xref,gwas, cancer_hotspots):
    """
    Function that annotates a VCF file with vcfanno against a user-defined set of germline and somatic VCF files
    """
-   clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_MEDGEN_CUI","CLINVAR_MEDGEN_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_HGSVP"]
+   clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_MEDGEN_CUI","CLINVAR_MEDGEN_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_HGVSP"]
    dbnsfp_info_tags = ["DBNSFP"]
    uniprot_info_tags = ["UNIPROT_FEATURE"]
    gvanno_xref_info_tags = ["GVANNO_XREF"]
-      
+   gwas_info_tags = ["GWAS_HIT"]
+   cancer_hotspots_info_tags = ["CANCER_MUTATION_HOTSPOT"]
+
+   if cancer_hotspots is True:
+      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, cancer_hotspots_info_tags, query_info_tags, "cancer_hotspots")
    if clinvar is True:
       prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, clinvar_info_tags, query_info_tags, "clinvar")
    if dbnsfp is True:
@@ -54,7 +61,9 @@ def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvann
       prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, uniprot_info_tags, query_info_tags, "uniprot")
    if gvanno_xref is True:
       prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, gvanno_xref_info_tags, query_info_tags, "gvanno_xref")
-   
+   if gwas is True:
+      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, gwas_info_tags, query_info_tags, "gwas")
+
    out_vcf_vcfanno_unsorted1 = output_vcf + '.tmp.unsorted.1'
    query_prefix = re.sub('\.vcf.gz$','',query_vcf)
    print_vcf_header(query_vcf, vcfheader_file, chromline_only = True)

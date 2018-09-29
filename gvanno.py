@@ -12,8 +12,8 @@ import platform
 import toml
 
 
-gvanno_version = '0.4.0'
-db_version = 'GVANNO_DB_VERSION = 20180915'
+gvanno_version = '0.4.1'
+db_version = 'GVANNO_DB_VERSION = 20180928'
 vep_version = '93'
 global vep_assembly
 
@@ -151,7 +151,7 @@ def verify_input_files(input_vcf, configuration_file, gvanno_config_options, bas
       input_vcf_dir = os.path.dirname(os.path.abspath(input_vcf))
 
       ## if output vcf exist and overwrite not set
-      output_vcf = os.path.join(str(output_dir_full),str(sample_id)) + '_gvanno.vcf.gz'
+      output_vcf = os.path.join(str(output_dir_full),str(sample_id)) + '_gvanno_' + str(genome_assembly) + '.vcf.gz'
       if os.path.exists(output_vcf) and overwrite == 0:
          err_msg = "Output files (e.g. " + str(output_vcf) + ") already exist - please specify different sample_id or add option --force_overwrite"
          gvanno_error_message(err_msg,logger)
@@ -307,9 +307,8 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       output_pass_vcf = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.vcf.gz')
       output_pass_tsv = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.tsv')
       input_vcf_gvanno_ready = os.path.join(output_dir, re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_ready.vcf.gz',host_directories['input_vcf_basename_host']))
-      vep_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_vep.vcf',input_vcf_gvanno_ready)
-      vep_vcfanno_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_vep.vcfanno.vcf',input_vcf_gvanno_ready)
-      vep_tmp_vcf = vep_vcf + '.tmp'
+      vep_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.vep.vcf',input_vcf_gvanno_ready)
+      vep_vcfanno_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.vep.vcfanno.vcf',input_vcf_gvanno_ready)
       vep_vcfanno_annotated_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated',vep_vcfanno_vcf) + '.gz'
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
@@ -319,10 +318,9 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
          vep_options = vep_options + " --plugin LoF"
-      vep_main_command = str(docker_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_tmp_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
-      vep_sed_command =  str(docker_command_run1) + "sed -r 's/:p\.[A-Z]{1}[a-z]{2}[0-9]+=//g' " + str(vep_tmp_vcf) + " > " + str(vep_vcf) + docker_command_run_end
-      vep_bgzip_command = str(docker_command_run1) + "bgzip -f " + str(vep_vcf) + "\""
-      vep_tabix_command = str(docker_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + "\""
+      vep_main_command = str(docker_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
+      vep_bgzip_command = docker_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
+      vep_tabix_command = str(docker_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
       logger = getlogger('gvanno-vep')
    
       print()
@@ -331,19 +329,20 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       else:
          logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
       check_subprocess(vep_main_command)
-      check_subprocess(vep_sed_command)
       check_subprocess(vep_bgzip_command)
       check_subprocess(vep_tabix_command)
       logger.info("Finished")
-   
+      #return
+
       ## vcfanno command
       print()
       logger = getlogger('gvanno-vcfanno')
-      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, UniProtKB)")
-      gvanno_vcfanno_command = str(docker_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
+      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
+      gvanno_vcfanno_command = str(docker_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
-   
+      #return
+
       ## summarise command
       print()
       logger = getlogger("gvanno-summarise")

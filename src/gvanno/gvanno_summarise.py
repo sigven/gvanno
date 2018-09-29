@@ -10,7 +10,6 @@ import annoutils
 
 logger = annoutils.getlogger('gvanno-gene-annotate')
 csv.field_size_limit(500 * 1024 * 1024)
-threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','Glu':'E','Gln':'Q','Gly':'G','His':'H','Ile':'I','Leu':'L','Lys':'K', 'Met':'M','Phe':'F','Pro':'P','Ser':'S','Thr':'T','Trp':'W','Tyr':'Y','Val':'V','Ter':'X'}
 
 
 def __main__():
@@ -32,49 +31,23 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
    """
 
    ## read VEP and PCGR tags to be appended to VCF file
-   gvanno_vcf_infotags_meta = annoutils.read_infotag_file(os.path.join(gvanno_db_directory,'gvanno_infotags.tsv'))
+   vcf_infotags_meta = annoutils.read_infotag_file(os.path.join(gvanno_db_directory,'gvanno_infotags.tsv'))
    out_vcf = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
 
-   vep_to_gvanno_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD','gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
-                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD','gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
-                     'AMR_AF':'AMR_AF_1KG','SAS_AF':'SAS_AF_1KG','EUR_AF':'EUR_AF_1KG','EAS_AF':'EAS_AF_1KG', 'AF':'GLOBAL_AF_1KG'}
+   meta_vep_dbnsfp_info = annoutils.vep_dbnsfp_meta_vcf(query_vcf, vcf_infotags_meta)
+   vep_csq_index2fields = meta_vep_dbnsfp_info['vep_csq_index2fields']
+   vep_csq_fields2index = meta_vep_dbnsfp_info['vep_csq_fields2index']
+   dbnsfp_prediction_algorithms = meta_vep_dbnsfp_info['dbnsfp_prediction_algorithms']
 
    vcf = VCF(query_vcf)
-   vep_csq_index2fields = {}
-   vep_csq_fields2index = {}
-   dbnsfp_prediction_algorithms = []
-   for e in vcf.header_iter():
-      header_element = e.info()
-      if 'ID' in header_element.keys():
-         identifier = str(header_element['ID'])
-         if identifier == 'CSQ' or identifier == 'DBNSFP':
-            description = str(header_element['Description'])
-            if 'Format: ' in description:
-               subtags = description.split('Format: ')[1].split('|')
-               if identifier == 'CSQ':
-                  i = 0
-                  for t in subtags:
-                     v = t
-                     if t in vep_to_gvanno_af:
-                        v = str(vep_to_gvanno_af[t])
-                     if v in gvanno_vcf_infotags_meta:
-                        vep_csq_index2fields[i] = v
-                        vep_csq_fields2index[v] = i
-                     i = i + 1
-               if identifier == 'DBNSFP':
-                  i = 7
-                  while(i < len(subtags)):
-                     dbnsfp_prediction_algorithms.append(str(re.sub(r'((_score)|(_pred))"*$','',subtags[i])))
-                     i = i + 1
-   
-   for tag in gvanno_vcf_infotags_meta:
-      vcf.add_info_to_header({'ID': tag, 'Description': str(gvanno_vcf_infotags_meta[tag]['description']),'Type':str(gvanno_vcf_infotags_meta[tag]['type']), 'Number': str(gvanno_vcf_infotags_meta[tag]['number'])})
-   vcf.add_info_to_header({'ID':'EFFECT_PREDICTIONS', 'Description':'Functional effect predictions from multiple algorithms (dbNSFP)','Type':'String', 'Number':'.'})
-   
+   for tag in vcf_infotags_meta:
+      vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   pcgr_onco_xref_map = {'SYMBOL':1, 'ENTREZ_ID':2, 'UNIPROT_ID':3, 'APPRIS':4,'UNIPROT_ACC':5,'CHORUM_ID':6,'TUMOR_SUPPRESSOR':7,'ONCOGENE':8,'DISGENET_CUI':9,'MIM_PHENOTYPE_ID':10}
+   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'SYMBOL':2, 'ENTREZ_ID':3, 'UNIPROT_ID':4, 'APPRIS':5,'UNIPROT_ACC':6,
+                        'REFSEQ_MRNA':7, 'CORUM_ID':8,'TUMOR_SUPPRESSOR':9,'ONCOGENE':10,'DISGENET_CUI':11,'MIM_PHENOTYPE_ID':12}
    for rec in vcf:
       all_transcript_consequences = []
       if current_chrom is None:
@@ -93,13 +66,13 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
          continue
       gvanno_xref = {}
       num_chromosome_records_processed += 1
-      if not rec.INFO.get('gvanno_xref') is None:
-         for transcript_onco_xref in rec.INFO.get('GVANNO_XREF').split(','):
-            xrefs = transcript_onco_xref.split('|')
+      if not rec.INFO.get('GVANNO_XREF') is None:
+         for transcript_xref in rec.INFO.get('GVANNO_XREF').split(','):
+            xrefs = transcript_xref.split('|')
             ensembl_transcript_id = str(xrefs[0])
             gvanno_xref[ensembl_transcript_id] = {}
-            for annotation in pcgr_onco_xref_map.keys():
-               annotation_index = pcgr_onco_xref_map[annotation]
+            for annotation in gvanno_xref_map.keys():
+               annotation_index = gvanno_xref_map[annotation]
                if annotation_index > (len(xrefs) - 1):
                   continue
                if xrefs[annotation_index] != '':
@@ -120,9 +93,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
                            if vep_csq_index2fields[j] == 'Feature':
                               ensembl_transcript_id = str(csq_fields[j])
                               if ensembl_transcript_id in gvanno_xref:
-                                 for annotation in pcgr_onco_xref_map.keys():
-                                    if annotation == 'UNIPROT_ACC':
-                                       continue
+                                 for annotation in gvanno_xref_map.keys():
                                     if annotation in gvanno_xref[ensembl_transcript_id]:
                                        if annotation == 'TUMOR_SUPPRESSOR' or annotation == 'ONCOGENE':
                                           rec.INFO[annotation] = True
