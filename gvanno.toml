@@ -14,4 +14,4 @@ n_vep_forks = 4
 vep_skip_intergenic = false
 ## Predict loss-of-function variants using VEP's LofTee plugin
 ## Note that turning this on (true) are likely to increase VEP's run time substantially
-lof_prediction = true
+lof_prediction = false
