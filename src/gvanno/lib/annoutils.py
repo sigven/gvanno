@@ -336,18 +336,20 @@ def map_variant_effect_predictors(rec, algorithms):
    consequence = str(rec.INFO.get('Consequence'))
      
    dbnsfp_key = ''
-     
-   if not rec.INFO.get('HGVSp_short') is None:
+
+   found_key = 0
+   if not rec.INFO.get('HGVSp_short') is None and not rec.INFO.get('HGVSp_short') == '.':
       aa_change = str(rec.INFO.get('HGVSp_short'))
       dbnsfp_key = gene_id + ':' + str(aa_change)
-   else:
-      if re.search('splice_site',consequence):
-         dbnsfp_key = gene_id
+      if dbnsfp_key in dbnsfp_predictions:
+         found_key = 1
    
+   if found_key == 0 and re.search('splice_',consequence):
+      dbnsfp_key = gene_id
+
    if dbnsfp_key != '':
       if dbnsfp_key in dbnsfp_predictions:
          rec.INFO['EFFECT_PREDICTIONS'] = dbnsfp_predictions[dbnsfp_key]
-         
          for algo_pred in rec.INFO['EFFECT_PREDICTIONS'].split('&'):
             if algo_pred.startswith('sift:'):
                rec.INFO['SIFT_DBNSFP'] = str(algo_pred.split(':')[1])

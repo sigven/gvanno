@@ -12,9 +12,9 @@ import platform
 import toml
 
 
-gvanno_version = '0.4.1'
-db_version = 'GVANNO_DB_VERSION = 20180928'
-vep_version = '93'
+gvanno_version = '0.5.0'
+db_version = 'GVANNO_DB_VERSION = 20181004'
+vep_version = '94'
 global vep_assembly
 
 def __main__():
