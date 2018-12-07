@@ -6,21 +6,22 @@ The germline variant annotator (*gvanno*) is a simple, Docker-based software pac
 
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record.
 
-#### Annotation resources included in _gvanno_ - 0.5.0
+#### Annotation resources included in _gvanno_ - 0.6.0
 
 * [VEP v94](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor (GENCODE v28/v19 as the gene reference dataset)
 * [dBNSFP v3.5](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (August 2017)
 * [gnomAD r2](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (February 2017) - from VEP
 * [dbSNP b151/b150](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (Oct/Feb 2017) - from VEP
 * [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013) - from VEP
-* [ClinVar 20180930](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of clinically related variants (October 2018)
+* [ClinVar 20181202](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of clinically related variants (December 2018)
 * [DisGeNET](http://www.disgenet.org) - Database of gene-disease associations (v5.0, May 2017)
-* [UniProt/SwissProt KnowledgeBase 2018_08](http://www.uniprot.org) - Resource on protein sequence and functional information (September 2018)
+* [UniProt/SwissProt KnowledgeBase 2018_10](http://www.uniprot.org) - Resource on protein sequence and functional information (November 2018)
 * [Pfam v32](http://pfam.xfam.org) - Database of protein families and domains (Sept 2018)
-* [TSGene v2.0](http://bioinfo.mc.vanderbilt.edu/TSGene/) - Tumor suppressor/oncogene database (November 2015)
-* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (September 15th 2018)
+* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (November 19th 2018)
 
 ### News
+* December 7th 2018 - **0.6.0 release**
+        * ClinVar, GWAS and UniProt update
 * October 5th 2018 - **0.5.0 release**
 	* VEP update (v94)
 	* Fixed bug in assessment of predicted splice variant effect (dbscSNV annotations)
@@ -65,15 +66,15 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1. Download and unpack the [latest software release (0.5.0)](https://github.com/sigven/gvanno/releases/tag/v0.5.0)
+1. Download and unpack the [latest software release (0.6.0)](https://github.com/sigven/gvanno/releases/tag/v0.6.0)
 2. Download and unpack the assembly-specific data bundle in the PCGR directory
-   * [grch37 data bundle](https://drive.google.com/open?id=1B6peqdn38oaqe9vd2iWcgfRyXuIrCX_-) (approx 9Gb)
-   * [grch38 data bundle](https://drive.google.com/open?id=1KrYc2olwk54dHabcRA65vFgXg4jnB6Tu) (approx 13Gb)
+   * [grch37 data bundle](https://drive.google.com/open?id=1ANl2jFBBsjOi5HoUVYexTS7nNtmRd-QF) (approx 9Gb)
+   * [grch38 data bundle](https://drive.google.com/open?id=1060UyJRDEhtJz3z64APFUQvvavhVMnbv) (approx 13Gb)
    * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
-3. Pull the [gvanno Docker image (0.5.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.5Gb):
-   * `docker pull sigven/gvanno:0.5.0` (gvanno annotation engine)
+3. Pull the [gvanno Docker image (0.6.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.5Gb):
+   * `docker pull sigven/gvanno:0.6.0` (gvanno annotation engine)
 
 #### STEP 3: Input preprocessing
 
@@ -104,7 +105,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 	positional arguments:
 	gvanno_dir            gvanno base directory with accompanying data
-				    directory, e.g. ~/gvanno-0.5.0
+				    directory, e.g. ~/gvanno-0.6.0
 	output_dir            Output directory
 	{grch37,grch38}       grch37 or grch38
 	configuration_file    gvanno configuration file (TOML format)
@@ -123,8 +124,8 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contains an example VCF file. Analysis of the example VCF can be performed by the following command:
 
-`python ~/gvanno-0.5.0/gvanno.py --input_vcf ~/gvanno-0.5.0/examples/example.vcf.gz`
-` ~/gvanno-0.5.0 ~/gvanno-0.5.0/examples grch37 ~/gvanno-0.5.0/examples/gvanno_config.toml example`
+`python ~/gvanno-0.6.0/gvanno.py --input_vcf ~/gvanno-0.6.0/examples/example.vcf.gz`
+` ~/gvanno-0.6.0 ~/gvanno-0.6.0/examples grch37 ~/gvanno-0.6.0/examples/gvanno_config.toml example`
 
 
 This command will run the Docker-based *gvanno* workflow and produce the following output files in the _examples_ folder:
