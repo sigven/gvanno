@@ -49,7 +49,7 @@ def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvann
    uniprot_info_tags = ["UNIPROT_FEATURE"]
    gvanno_xref_info_tags = ["GVANNO_XREF"]
    gwas_info_tags = ["GWAS_HIT"]
-   cancer_hotspots_info_tags = ["CANCER_MUTATION_HOTSPOT"]
+   cancer_hotspots_info_tags = ["MUTATION_HOTSPOT","MUTATION_HOTSPOT_TRANSCRIPT","MUTATION_HOTSPOT_CANCERTYPE"]
 
    if cancer_hotspots is True:
       prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, cancer_hotspots_info_tags, query_info_tags, "cancer_hotspots")

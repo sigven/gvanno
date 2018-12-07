@@ -14,7 +14,7 @@ csv.field_size_limit(500 * 1024 * 1024)
 
 def __main__():
    
-   parser = argparse.ArgumentParser(description='Cancer gene annotations from PCGR pipeline (SNVs/InDels)')
+   parser = argparse.ArgumentParser(description='Gene annotations from gvanno pipeline (SNVs/InDels)')
    parser.add_argument('vcf_file', help='VCF file with VEP-annotated query variants (SNVs/InDels)')
    parser.add_argument('gvanno_db_dir',help='gvanno data directory')
    args = parser.parse_args()

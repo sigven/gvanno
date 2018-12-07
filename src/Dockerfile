@@ -1,8 +1,8 @@
 ############################################################
 # Dockerfile to build gvanno (germline variant annotator)
 # Main software components:
-#  1. Variant Effect Predictor (VEP 93)
-#  2. vcfanno (0.2.9)
+#  1. Variant Effect Predictor (VEP 94)
+#  2. vcfanno (0.3.1)
 #  3. EBI-variation's vcf_validator
 #  4. vt (https://github.com/atks/vt) - tool set for short
 #     variant discovery in genetic sequence data
@@ -40,8 +40,8 @@ RUN apt-get update \
 
 RUN apt-get autoremove
 
-## Install vcfanno version 0.2.8
-RUN wget https://github.com/brentp/vcfanno/releases/download/v0.2.9/vcfanno_linux64 && \
+## Install vcfanno version v0.3.1
+RUN wget https://github.com/brentp/vcfanno/releases/download/v0.3.1/vcfanno_linux64 && \
     mv vcfanno_linux64 vcfanno && \
     mv vcfanno /usr/local/bin && \
     chmod 755 /usr/local/bin/vcfanno
