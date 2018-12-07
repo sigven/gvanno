@@ -21,8 +21,7 @@ The germline variant annotator (*gvanno*) is a simple, Docker-based software pac
 
 ### News
 * December 7th 2018 - **0.6.0 release**
-        * ClinVar, GWAS and UniProt update
-
+	* ClinVar, GWAS and UniProt update
 * October 5th 2018 - **0.5.0 release**
 	* VEP update (v94)
 	* Fixed bug in assessment of predicted splice variant effect (dbscSNV annotations)
