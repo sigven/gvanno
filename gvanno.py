@@ -12,9 +12,9 @@ import platform
 import toml
 
 
-gvanno_version = '0.6.0'
-db_version = 'GVANNO_DB_VERSION = 20181205'
-vep_version = '94'
+gvanno_version = '0.7.0'
+db_version = 'GVANNO_DB_VERSION = 20190204'
+vep_version = '95'
 global vep_assembly
 
 def __main__():
@@ -30,6 +30,7 @@ def __main__():
    parser.add_argument('sample_id',help="Sample identifier - prefix for output files")
    
    docker_image_version = 'sigven/gvanno:' + str(gvanno_version)
+   #docker_image_version = 'sigven/vep95:' + str(gvanno_version)
    args = parser.parse_args()
    
    overwrite = 0
@@ -79,7 +80,7 @@ def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger)
    
    
    boolean_tags = ['vep_skip_intergenic', 'vcf_validation', 'lof_prediction']
-   integer_tags = ['n_vcfanno_proc','n_vep_forks']
+   integer_tags = ['n_vcfanno_proc','n_vep_forks','buffer_size']
    for section in ['other']:
       if section in user_options:
          for t in boolean_tags:
@@ -256,7 +257,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_pass_vcf = 'None'
    uid = ''
    vep_assembly = 'GRCh38'
-   gencode_version = 'release 28'
+   gencode_version = 'release 29'
    if genome_assembly == 'grch37':
       gencode_version = 'release 19'
       vep_assembly = 'GRCh37'
@@ -313,7 +314,9 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
       fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
-      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " --hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --regulatory --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq --plugin LoF --dir /usr/local/share/vep/data"
+      pick_order = "biotype,canonical,appris,tsl,ccds,rank,length"
+      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --regulatory --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
+      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + pick_order + " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
@@ -347,7 +350,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Gene annotations with gvanno-summarise")
-      gvanno_summarise_command = str(docker_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
+      gvanno_summarise_command = str(docker_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + " " + str(config_options['other']['lof_prediction']) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       

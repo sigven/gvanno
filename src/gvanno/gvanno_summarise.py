@@ -17,11 +17,12 @@ def __main__():
    parser = argparse.ArgumentParser(description='Gene annotations from gvanno pipeline (SNVs/InDels)')
    parser.add_argument('vcf_file', help='VCF file with VEP-annotated query variants (SNVs/InDels)')
    parser.add_argument('gvanno_db_dir',help='gvanno data directory')
+   parser.add_argument('lof_prediction',default=0,type=int,help='VEP LoF prediction setting (0/1)')
    args = parser.parse_args()
 
-   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir)
+   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction)
 
-def extend_vcf_annotations(query_vcf, gvanno_db_directory):
+def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    """
    Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
    1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
@@ -41,8 +42,13 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory):
 
    vcf = VCF(query_vcf)
    for tag in vcf_infotags_meta:
-      vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+      if lof_prediction == 0:
+         if not tag.startswith('LoF'):
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+      else:
+         vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
 
+   
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
