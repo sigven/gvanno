@@ -12,25 +12,24 @@ import platform
 import toml
 
 
-gvanno_version = '0.7.0'
-db_version = 'GVANNO_DB_VERSION = 20190204'
+gvanno_version = '0.8.0'
+db_version = 'GVANNO_DB_VERSION = 20190320'
 vep_version = '95'
 global vep_assembly
 
 def __main__():
    
    parser = argparse.ArgumentParser(description='Germline variant annotation (gvanno) workflow for clinical and functional interpretation of germline nucleotide variants',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-   parser.add_argument('--input_vcf', dest = "input_vcf", help='VCF input file with somatic query variants (SNVs/InDels)')
    parser.add_argument('--force_overwrite', action = "store_true", help='The script will fail with an error if the output file already exists. Force the overwrite of existing result files by using this flag')
    parser.add_argument('--version', action='version', version='%(prog)s ' + str(gvanno_version))
-   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-0.2.0')
+   parser.add_argument('query_vcf', help='VCF input file with germline query variants (SNVs/InDels)')
+   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-0.8.0')
    parser.add_argument('output_dir',help='Output directory')
    parser.add_argument('genome_assembly',choices = ['grch37','grch38'], help='grch37 or grch38')
    parser.add_argument('configuration_file',help='gvanno configuration file (TOML format)')
    parser.add_argument('sample_id',help="Sample identifier - prefix for output files")
    
    docker_image_version = 'sigven/gvanno:' + str(gvanno_version)
-   #docker_image_version = 'sigven/vep95:' + str(gvanno_version)
    args = parser.parse_args()
    
    overwrite = 0
@@ -52,7 +51,7 @@ def __main__():
    else:
       err_msg = "gvanno configuration file " + str(args.configuration_file) + " does not exist - exiting"
       gvanno_error_message(err_msg,logger)
-   host_directories = verify_input_files(args.input_vcf, args.configuration_file, config_options, args.gvanno_dir, args.output_dir, args.sample_id, args.genome_assembly, overwrite, logger)
+   host_directories = verify_input_files(args.query_vcf, args.configuration_file, config_options, args.gvanno_dir, args.output_dir, args.sample_id, args.genome_assembly, overwrite, logger)
 
    run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.genome_assembly, gvanno_version)
 
@@ -314,8 +313,8 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
       fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
-      pick_order = "biotype,canonical,appris,tsl,ccds,rank,length"
-      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --regulatory --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
+      pick_order = "canonical,appris,tsl,biotype,ccds,rank,length"
+      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + pick_order + " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
@@ -372,7 +371,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       gvanno_vcf2tsv_command_all = str(docker_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS variants only")
       check_subprocess(gvanno_vcf2tsv_command_pass)
-      logger.info("Conversion of VCF variant data to records of tab-separated values - PASS and non-PASS variants)")
+      logger.info("Conversion of VCF variant data to records of tab-separated values - PASS and non-PASS variants")
       check_subprocess(gvanno_vcf2tsv_command_all)
       logger.info("Finished")
       

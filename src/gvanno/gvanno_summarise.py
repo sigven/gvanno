@@ -36,10 +36,8 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    out_vcf = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
 
    meta_vep_dbnsfp_info = annoutils.vep_dbnsfp_meta_vcf(query_vcf, vcf_infotags_meta)
-   vep_csq_index2fields = meta_vep_dbnsfp_info['vep_csq_index2fields']
-   vep_csq_fields2index = meta_vep_dbnsfp_info['vep_csq_fields2index']
    dbnsfp_prediction_algorithms = meta_vep_dbnsfp_info['dbnsfp_prediction_algorithms']
-
+   vep_csq_fields_map = meta_vep_dbnsfp_info['vep_csq_fieldmap']
    vcf = VCF(query_vcf)
    for tag in vcf_infotags_meta:
       if lof_prediction == 0:
@@ -52,10 +50,18 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'SYMBOL':2, 'ENTREZ_ID':3, 'UNIPROT_ID':4, 'APPRIS':5,'UNIPROT_ACC':6,
-                        'REFSEQ_MRNA':7, 'CORUM_ID':8,'TUMOR_SUPPRESSOR':9,'ONCOGENE':10,'DISGENET_CUI':11,'MIM_PHENOTYPE_ID':12}
+   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'ENSEMBL_PROTEIN_ID':2, 'SYMBOL':3, 'ENTREZ_ID':4, 'UNIPROT_ID':5, 'APPRIS':6,'UNIPROT_ACC':7,
+                        'REFSEQ_MRNA':8, 'CORUM_ID':9,'TUMOR_SUPPRESSOR':10,'ONCOGENE':11,'DISGENET_CUI':12,'MIM_PHENOTYPE_ID':13}
+   
+   vcf_info_element_types = {}
+   for e in vcf.header_iter():
+      header_element = e.info()
+      if 'ID' in header_element and 'HeaderType' in header_element and 'Type' in header_element:
+         identifier = str(header_element['ID'])
+         fieldtype = str(header_element['Type'])
+         vcf_info_element_types[identifier] = fieldtype
+
    for rec in vcf:
-      all_transcript_consequences = []
       if current_chrom is None:
          current_chrom = str(rec.CHROM)
          num_chromosome_records_processed = 0
@@ -70,73 +76,29 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
          variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
          logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (vep_skip_intergenic in config set to true?)  - variant will be skipped')
          continue
-      gvanno_xref = {}
       num_chromosome_records_processed += 1
-      if not rec.INFO.get('GVANNO_XREF') is None:
-         for transcript_xref in rec.INFO.get('GVANNO_XREF').split(','):
-            xrefs = transcript_xref.split('|')
-            ensembl_transcript_id = str(xrefs[0])
-            gvanno_xref[ensembl_transcript_id] = {}
-            for annotation in gvanno_xref_map.keys():
-               annotation_index = gvanno_xref_map[annotation]
-               if annotation_index > (len(xrefs) - 1):
-                  continue
-               if xrefs[annotation_index] != '':
-                  gvanno_xref[ensembl_transcript_id][annotation] = xrefs[annotation_index]
+      gvanno_xref = annoutils.make_transcript_xref_map(rec, gvanno_xref_map, xref_tag = "GVANNO_XREF")
+
       for identifier in ['CSQ','DBNSFP']:
          if identifier == 'CSQ':
-            num_picks = 0
-            for csq in rec.INFO.get(identifier).split(','):
-               csq_fields =  csq.split('|')
-               if csq_fields[vep_csq_fields2index['PICK']] == "1": ## only consider the primary/picked consequence when expanding with annotation tags
-                  num_picks += 1
-                  j = 0
-                  ## loop over all CSQ elements and set them in the vep_info_tags dictionary (for each alt_allele)
-                  while(j < len(csq_fields)):
-                     if j in vep_csq_index2fields:
-                        if csq_fields[j] != '':
-                           rec.INFO[vep_csq_index2fields[j]] = str(csq_fields[j])
-                           if vep_csq_index2fields[j] == 'Feature':
-                              ensembl_transcript_id = str(csq_fields[j])
-                              if ensembl_transcript_id in gvanno_xref:
-                                 for annotation in gvanno_xref_map.keys():
-                                    if annotation in gvanno_xref[ensembl_transcript_id]:
-                                       if annotation == 'TUMOR_SUPPRESSOR' or annotation == 'ONCOGENE':
-                                          rec.INFO[annotation] = True
-                                       else:
-                                          rec.INFO[annotation] = gvanno_xref[ensembl_transcript_id][annotation]
-                           if vep_csq_index2fields[j] == 'DOMAINS':
-                              domain_identifiers = str(csq_fields[j]).split('&')
-                              for v in domain_identifiers:
-                                 if v.startswith('Pfam_domain'):
-                                    rec.INFO['PFAM_DOMAIN'] = str(re.sub(r'\.[0-9]{1,}$','',re.sub(r'Pfam_domain:','',v)))
-
-                           if vep_csq_index2fields[j] == 'Existing_variation':
-                              var_identifiers = str(csq_fields[j]).split('&')
-                              cosmic_identifiers = []
-                              dbsnp_identifiers = []
-                              for v in var_identifiers:
-                                 if v.startswith('COSM'):
-                                    cosmic_identifiers.append(v)
-                                 if v.startswith('rs'):
-                                    dbsnp_identifiers.append(v)
-                              if len(cosmic_identifiers) > 0:
-                                 rec.INFO['COSMIC_MUTATION_ID'] = '&'.join(cosmic_identifiers)
-                              if len(dbsnp_identifiers) > 0:
-                                 rec.INFO['DBSNPRSID'] = '&'.join(dbsnp_identifiers)
-                           
-                     j = j + 1
-                  annoutils.set_coding_change(rec)
-               symbol = '.'
-               if csq_fields[vep_csq_fields2index['SYMBOL']] != "":
-                  symbol = str(csq_fields[vep_csq_fields2index['SYMBOL']])
-               consequence_entry = str(csq_fields[vep_csq_fields2index['Consequence']]) + ':' + str(symbol) + ':' + str(csq_fields[vep_csq_fields2index['Feature_type']]) + ':' + str(csq_fields[vep_csq_fields2index['Feature']]) + ':' + str(csq_fields[vep_csq_fields2index['BIOTYPE']])
-               all_transcript_consequences.append(consequence_entry)
-
+            csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
          if identifier == 'DBNSFP':
             if not rec.INFO.get('DBNSFP') is None:
                annoutils.map_variant_effect_predictors(rec, dbnsfp_prediction_algorithms)
-      rec.INFO['VEP_ALL_CONSEQUENCE'] = ','.join(all_transcript_consequences)
+      if 'vep_all_csq' in csq_record_results:
+         rec.INFO['VEP_ALL_CSQ'] = ','.join(csq_record_results['vep_all_csq'])
+      if 'vep_block' in csq_record_results:
+         vep_csq_records = csq_record_results['vep_block']
+         block_idx = 0
+         record = vep_csq_records[block_idx]
+         for k in record:
+            if k in vcf_info_element_types:
+               if vcf_info_element_types[k] == "Flag" and record[k] == "1":
+                  rec.INFO[k] = True
+               else:
+                  if not record[k] is None:
+                     rec.INFO[k] = record[k]
+
       w.write_record(rec)
    w.close()
    logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))

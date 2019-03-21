@@ -1,7 +1,6 @@
 ###################################################
 # Stage 1 - docker container to build ensembl-vep #
 ###################################################
-#FROM ensemblorg/ensembl-vep:latest
 
 FROM ubuntu:16.04 as builder
 

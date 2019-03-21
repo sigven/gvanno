@@ -40,8 +40,6 @@ def error_message(message, logger):
    logger.error('')
    exit(1)
 
-
-
 def write_pass_vcf(annotated_vcf, logger):
    
    out_vcf = re.sub(r'\.annotated\.vcf\.gz$','.annotated.pass.vcf',annotated_vcf)
@@ -125,7 +123,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
          for var in config_options[section]:
             if not var in user_options[section]:
                continue
-            #print(str(section) + '\t' + str(var))
             if isinstance(config_options[section][var],bool) and not isinstance(user_options[section][var],bool):
                err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting boolean)'
                error_message(err_msg, logger)
@@ -157,16 +154,20 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                   err_msg = "Number of mutational signatures in search space ('mutsignatures_signature_limit') must be positive and not more than 30 (retrieved value: " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
             if var == 'tier_model' and not str(user_options[section][var]) in tier_options:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + ' cannot be parsed properly (expecting \'pcgr\', or \'pcgr_acmg\')'
+               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
+                  ' cannot be parsed properly (expecting \'pcgr\', or \'pcgr_acmg\')'
                error_message(err_msg, logger)
             if var == 'pop_gnomad' and not str(user_options[section][var]) in populations_gnomad:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
+               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
+                  ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
                error_message(err_msg, logger)
             if var == 'pop_tgp' and not str(user_options[section][var]) in populations_tgp:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + ' cannot be parsed properly (expecting \'afr\', \'amr\', \'eas\', \'eur\', \'global\', or \'sas\')'
+               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
+                  ' cannot be parsed properly (expecting \'afr\', \'amr\', \'eas\', \'eur\', \'global\', or \'sas\')'
                error_message(err_msg, logger)
             if var == 'report_theme' and not str(user_options[section][var]) in theme_options:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + ' cannot be parsed properly (expecting \'default\', \'cerulean\', \'journal\', \'flatly\', \'readable\', \'spacelab\', \'united\', \'cosmo\', \'lumen\', \'paper\', \'sandstone\', \'simplex\', or \'yeti\')'
+               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
+                  ' cannot be parsed properly (expecting \'default\', \'cerulean\', \'journal\', \'flatly\', \'readable\', \'spacelab\', \'united\', \'cosmo\', \'lumen\', \'paper\', \'sandstone\', \'simplex\', or \'yeti\')'
                error_message(err_msg, logger)
             if var.startswith('maf_'):
                if user_options[section][var] < 0 or user_options[section][var] > 1:
@@ -201,12 +202,12 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                   err_msg = "Log ratio for copy number amplifications (" + str(user_options[section][var]) + ") should be greater than zero"
                   error_message(err_msg,logger)
             if var == 'min_majority' and section == 'dbnsfp':
-               if user_options['dbnsfp'][var] > 8 or user_options['dbnsfp'][var] < 5:
-                  err_msg = "Minimum number of majority votes for consensus calls among dbNSFP predictions should not exceed 8 and should not be less than 5"
+               if user_options['dbnsfp'][var] > 10 or user_options['dbnsfp'][var] < 7:
+                  err_msg = "Minimum number of majority votes for consensus calls among dbNSFP predictions should not exceed 10 and should not be less than 7"
                   error_message(err_msg,logger)
             if var == 'max_minority' and section == 'dbnsfp':
-               if user_options['dbnsfp'][var] >= config_options['dbnsfp']['min_majority'] or user_options['dbnsfp'][var] > 2 or user_options['dbnsfp'][var] < 0 or (user_options['dbnsfp'][var] + config_options['dbnsfp']['min_majority'] > 8):
-                  err_msg = "Maximum number of minority votes for consensus calls among dbNSFP predictions should not exceed 2 (8 algorithms in total) and should be less than min_majority (" + str(config_options['dbnsfp']['min_majority']) + ")"
+               if user_options['dbnsfp'][var] >= config_options['dbnsfp']['min_majority'] or user_options['dbnsfp'][var] > 3 or user_options['dbnsfp'][var] < 0 or (user_options['dbnsfp'][var] + config_options['dbnsfp']['min_majority'] > 10):
+                  err_msg = "Maximum number of minority votes for consensus calls among dbNSFP predictions should not exceed 3 (10 algorithms in total) and should be less than min_majority (" + str(config_options['dbnsfp']['min_majority']) + ")"
                   error_message(err_msg,logger)
             
             config_options[section][var] = user_options[section][var]
@@ -296,71 +297,90 @@ def detect_reserved_info_tag(tag, tag_name, logger):
       err_msg = 'Custom INFO tag (' + str(tag_name) + ') needs another name - ' + str(tag) + ' is a reserved field in the VCF specification (FORMAT)'
       return error_message(err_msg, logger)
 
-def set_coding_change(rec):
-   
-   rec.INFO['CODING_STATUS'] = 'noncoding'
-   rec.INFO['EXONIC_STATUS'] = 'nonexonic'
+
+def assign_cds_exon_intron_annotations(csq_record):
+   csq_record['CODING_STATUS'] = 'noncoding'
+   csq_record['EXONIC_STATUS'] = 'nonexonic'
+   csq_record['SPLICE_DONOR_RELEVANT'] = False
+   csq_record['NULL_VARIANT'] = False
    
    coding_csq_pattern = r"^(stop_|start_lost|frameshift_|missense_|splice_donor|splice_acceptor|protein_altering|inframe_)"
    wes_csq_pattern = r"^(stop_|start_lost|frameshift_|missense_|splice_donor|splice_acceptor|inframe_|protein_altering|synonymous)"
-   if re.match(coding_csq_pattern, str(rec.INFO.get('Consequence'))):
-      rec.INFO['CODING_STATUS'] = 'coding'
+   null_pattern = r"^(stop_|frameshift_)"
+   if re.match(coding_csq_pattern, str(csq_record['Consequence'])):
+      csq_record['CODING_STATUS'] = 'coding'
    
-   if re.match(wes_csq_pattern, str(rec.INFO.get('Consequence'))):
-      rec.INFO['EXONIC_STATUS'] = 'exonic'
+   if re.match(wes_csq_pattern, str(csq_record['Consequence'])):
+      csq_record['EXONIC_STATUS'] = 'exonic'
+   
+   if re.match(null_pattern, str(csq_record['Consequence'])):
+      csq_record['NULL_VARIANT'] = True
 
+   if re.match(r"^splice_region_variant", str(csq_record['Consequence'])) and re.search(r'(\+3(A|G)>|\+4G>|\+5G>)', str(csq_record['HGVSc'])):
+      csq_record['SPLICE_DONOR_RELEVANT'] = True
 
    for m in ['HGVSp_short','CDS_CHANGE']:
-      rec.INFO[m] = '.'
-   if not rec.INFO.get('HGVSc') is None:
-      if rec.INFO.get('HGVSc') != '.':
-         if 'splice_acceptor_variant' in rec.INFO.get('Consequence') or 'splice_donor_variant' in rec.INFO.get('Consequence'):
-            key = str(rec.INFO.get('Consequence')) + ':' + str(rec.INFO.get('HGVSc'))
-            rec.INFO['CDS_CHANGE'] = key
-   if rec.INFO.get('Amino_acids') is None or rec.INFO.get('Protein_position') is None or rec.INFO.get('Consequence') is None:
+      csq_record[m] = '.'
+   if not csq_record['HGVSc'] is None:
+      if csq_record['HGVSc'] != '.':
+         if 'splice_acceptor_variant' in csq_record['Consequence'] or 'splice_donor_variant' in csq_record['Consequence']:
+            key = str(csq_record['Consequence']) + ':' + str(csq_record['HGVSc'])
+            csq_record['CDS_CHANGE'] = key
+   if csq_record['Amino_acids'] is None or csq_record['Protein_position'] is None or csq_record['Consequence'] is None:
       return
-   if not rec.INFO.get('Protein_position') is None:
-      if rec.INFO.get('Protein_position').startswith('-'):
+   if not csq_record['Protein_position'] is None:
+      if csq_record['Protein_position'].startswith('-'):
          return
 
    protein_change = '.'
-   if '/' in rec.INFO.get('Protein_position'):
-      protein_position = str(rec.INFO.get('Protein_position').split('/')[0])
+   if '/' in csq_record['Protein_position']:
+      protein_position = str(csq_record['Protein_position'].split('/')[0])
       if '-' in protein_position:
          if protein_position.split('-')[0].isdigit():
-            rec.INFO['AMINO_ACID_START'] = protein_position.split('-')[0]
+            csq_record['AMINO_ACID_START'] = protein_position.split('-')[0]
          if protein_position.split('-')[1].isdigit():
-            rec.INFO['AMINO_ACID_END'] = protein_position.split('-')[1]
+            csq_record['AMINO_ACID_END'] = protein_position.split('-')[1]
       else:
          if protein_position.isdigit():
-            rec.INFO['AMINO_ACID_START'] = protein_position
-            rec.INFO['AMINO_ACID_END'] = protein_position
+            csq_record['AMINO_ACID_START'] = protein_position
+            csq_record['AMINO_ACID_END'] = protein_position
    
-   if not rec.INFO.get('HGVSp') is None:
-      if rec.INFO.get('HGVSp') != '.':
-         if ':' in rec.INFO.get('HGVSp'):
-            protein_identifier = str(rec.INFO.get('HGVSp').split(':')[0])
+   if not csq_record['HGVSp'] is None:
+      if csq_record['HGVSp'] != '.':
+         if ':' in csq_record['HGVSp']:
+            protein_identifier = str(csq_record['HGVSp'].split(':')[0])
             if protein_identifier.startswith('ENSP'):
-               protein_change_VEP = str(rec.INFO.get('HGVSp').split(':')[1])
+               protein_change_VEP = str(csq_record['HGVSp'].split(':')[1])
                protein_change = threeToOneAA(protein_change_VEP)
   
-   if 'synonymous_variant' in rec.INFO.get('Consequence'):
-      protein_change = 'p.' + str(rec.INFO.get('Amino_acids')) + str(protein_position) + str(rec.INFO.get('Amino_acids'))
-      if 'stop_lost' in str(rec.INFO.get('Consequence')) and '/' in str(rec.INFO.get('Amino_acids')):
-         protein_change = 'p.X' + str(protein_position) + str(rec.INFO.get('Amino_acids')).split('/')[1]
+   if 'synonymous_variant' in csq_record['Consequence']:
+      protein_change = 'p.' + str(csq_record['Amino_acids']) + str(protein_position) + str(csq_record['Amino_acids'])
+      if 'stop_lost' in str(csq_record['Consequence']) and '/' in str(csq_record['Amino_acids']):
+         protein_change = 'p.X' + str(protein_position) + str(csq_record['Amino_acids']).split('/')[1]
     
-   rec.INFO['HGVSp_short'] = protein_change
+   csq_record['HGVSp_short'] = protein_change
    exon_number = 'NA'
-   if not rec.INFO.get('EXON') is None:
-      if rec.INFO.get('EXON') != '.':
-         if '/' in rec.INFO.get('EXON'):
-            exon_number = str(rec.INFO.get('EXON')).split('/')[0]
-  
-   if not rec.INFO.get('HGVSc') is None:
-      if rec.INFO.get('HGVSc') != '.':
+   if not csq_record['EXON'] is None:
+      if csq_record['EXON'] != '.':
+         if '/' in csq_record['EXON']:
+            exon_number = str(csq_record['EXON']).split('/')[0]
+            num_exons = str(csq_record['EXON']).split('/')[1]
+            if exon_number == num_exons:
+               csq_record['LAST_EXON'] = True
+
+   if not csq_record['INTRON'] is None:
+      if csq_record['INTRON'] != '.':
+         if '/' in csq_record['INTRON']:
+            intron_number = str(csq_record['INTRON']).split('/')[0]
+            num_introns = str(csq_record['INTRON']).split('/')[1]
+            if intron_number == num_introns:
+               csq_record['LAST_INTRON'] = True
+
+   if not csq_record['HGVSc'] is None:
+      if csq_record['HGVSc'] != '.':
          if protein_change != '.':
-            key = str(rec.INFO.get('Consequence')) + ':' + str(rec.INFO.get('HGVSc')) + ':exon' + str(exon_number) + ':' + str(protein_change)
-            rec.INFO['CDS_CHANGE'] = key
+            key = str(csq_record['Consequence']) + ':' + str(csq_record['HGVSc']) + ':exon' + str(exon_number) + ':' + str(protein_change)
+            csq_record['CDS_CHANGE'] = key
 
    return
 
@@ -427,6 +447,22 @@ def map_dbnsfp_predictions(dbnsfp_tag, algorithms):
    return effect_predictions
 
 
+def make_transcript_xref_map(rec, fieldmap, xref_tag = 'PCGR_ONCO_XREF'):
+   transcript_xref_map = {}
+   if not rec.INFO.get(xref_tag) is None:
+      for tref in rec.INFO.get(xref_tag).split(','):
+         xrefs = tref.split('|')
+         ensembl_transcript_id = str(xrefs[0])
+         transcript_xref_map[ensembl_transcript_id] = {}
+         for annotation in fieldmap.keys():
+            annotation_index = fieldmap[annotation]
+            if annotation_index > (len(xrefs) - 1):
+               continue
+            if xrefs[annotation_index] != '':
+               transcript_xref_map[ensembl_transcript_id][annotation] = xrefs[annotation_index]
+   
+   return(transcript_xref_map)
+
 def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
    vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD','gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
                      'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD','gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
@@ -455,16 +491,87 @@ def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
                         vep_csq_fields2index[v] = i
                      i = i + 1
                if identifier == 'DBNSFP':
-                  #if len(subtags) > 7:
-                     #effect_predictions_description = "Format: " + '|'.join(subtags[7:])
                   i = 7
                   while(i < len(subtags)):
                      dbnsfp_prediction_algorithms.append(str(re.sub(r'((_score)|(_pred))"*$','',subtags[i])))
                      i = i + 1
 
    vep_dbnsfp_meta_info = {}
-   vep_dbnsfp_meta_info['vep_csq_index2fields'] = vep_csq_index2fields
-   vep_dbnsfp_meta_info['vep_csq_fields2index'] = vep_csq_fields2index
+   vep_dbnsfp_meta_info['vep_csq_fieldmap'] = {}
+   vep_dbnsfp_meta_info['vep_csq_fieldmap']['field2index'] = vep_csq_fields2index
+   vep_dbnsfp_meta_info['vep_csq_fieldmap']['index2field'] = vep_csq_index2fields
    vep_dbnsfp_meta_info['dbnsfp_prediction_algorithms'] = dbnsfp_prediction_algorithms
 
    return vep_dbnsfp_meta_info
+
+def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ'):
+
+   all_csq_pick = []
+   all_transcript_consequences = []
+
+   for csq in rec.INFO.get(csq_identifier).split(','):
+      csq_fields =  csq.split('|')
+      ## loop over VEP consequence blocks PICK'ed according to VEP's ranking scheme
+      if csq_fields[vep_csq_fields_map['field2index']['PICK']] == "1": ## only consider the primary/picked consequence when expanding with annotation tags
+         j = 0
+         csq_record = {}
+
+         ## loop over block annotation elements (separated with '|'), and assign their values to the csq_record dictionary object
+         while(j < len(csq_fields)):
+            if j in vep_csq_fields_map['index2field']:
+               if csq_fields[j] != '':
+                  csq_record[vep_csq_fields_map['index2field'][j]] = str(csq_fields[j])
+                  if vep_csq_fields_map['index2field'][j] == 'Feature':
+                     ensembl_transcript_id = str(csq_fields[j])
+                     if ensembl_transcript_id in transcript_xref_map:
+                        for annotation in transcript_xref_map[ensembl_transcript_id].keys():
+                           ## assign additional gene/transcript annotations from the custom transcript xref map (PCGR/CPSR) as key,value pairs in the csq_record object
+                           csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
+                     else:
+                        logger.warning('Could not find transcript xrefs for ' + str(ensembl_transcript_id))
+
+                  ## Specifically assign PFAM protein domain as a csq_record key
+                  if vep_csq_fields_map['index2field'][j] == 'DOMAINS':
+                     domain_identifiers = str(csq_fields[j]).split('&')
+                     for v in domain_identifiers:
+                        if v.startswith('Pfam_domain'):
+                           csq_record['PFAM_DOMAIN'] = str(re.sub(r'\.[0-9]{1,}$','',re.sub(r'Pfam_domain:','',v)))
+                     
+                     csq_record['DOMAINS'] = None
+                  ## Assign COSMIC/DBSNP mutation ID's as individual key,value pairs in the csq_record object
+                  if vep_csq_fields_map['index2field'][j] == 'Existing_variation':
+                     var_identifiers = str(csq_fields[j]).split('&')
+                     cosmic_identifiers = []
+                     dbsnp_identifiers = []
+                     for v in var_identifiers:
+                        if v.startswith('COSM'):
+                           cosmic_identifiers.append(v)
+                        if v.startswith('rs'):
+                           dbsnp_identifiers.append(v)
+                     if len(cosmic_identifiers) > 0:
+                        csq_record['COSMIC_MUTATION_ID'] = '&'.join(cosmic_identifiers)
+                     if len(dbsnp_identifiers) > 0:
+                        csq_record['DBSNPRSID'] = '&'.join(dbsnp_identifiers)
+               else:
+                  csq_record[vep_csq_fields_map['index2field'][j]] = None
+            j = j + 1
+         
+         ## Assign coding status, protein change, coding sequence change, last exon/intron status etc
+         assign_cds_exon_intron_annotations(csq_record)
+         all_csq_pick.append(csq_record)
+      symbol = '.'
+      if csq_fields[vep_csq_fields_map['field2index']['SYMBOL']] != "":
+         symbol = str(csq_fields[vep_csq_fields_map['field2index']['SYMBOL']])
+      consequence_entry = (str(csq_fields[vep_csq_fields_map['field2index']['Consequence']]) + ':' +  
+         str(symbol) + ':' + 
+         str(csq_fields[vep_csq_fields_map['field2index']['Feature_type']]) + ':' + 
+         str(csq_fields[vep_csq_fields_map['field2index']['Feature']]) + ':' + 
+         str(csq_fields[vep_csq_fields_map['field2index']['BIOTYPE']]))
+      all_transcript_consequences.append(consequence_entry)
+         
+   vep_csq_results = {}
+   vep_csq_results['vep_block'] = all_csq_pick
+   vep_csq_results['vep_all_csq'] = all_transcript_consequences
+
+   return(vep_csq_results)
+      
