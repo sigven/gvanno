@@ -117,15 +117,7 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
       err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
       error_message(err_msg, logger)
    
-   valid_tumor_types = ['Adrenal_Gland_Cancer_NOS','Ampullary_Carcinoma_NOS','Biliary_Tract_Cancer_NOS','Bladder_Urinary_Tract_Cancer_NOS',
-                        'Bone_Cancer_NOS','Breast_Cancer_NOS','Cancer_Unknown_Primary_NOS','Cervical_Cancer_NOS','CNS_Brain_Cancer_NOS',
-                        'Colorectal_Cancer_NOS','Esophageal_Cancer_NOS','Head_And_Neck_Cancer_NOS','Kidney_Cancer','Leukemia_NOS',
-                        'Liver_Cancer_NOS','Lung_Cancer_NOS','Lymphoma_Hodgkin_NOS','Lymphoma_Non_Hodgkin_NOS','Multiple_Myeloma_NOS',
-                        'Ovarian_Fallopian_Tube_Cancer_NOS','Pancreatic_Cancer_NOS','Penile_Cancer_NOS','Peripheral_Nervous_System_Cancer_NOS',
-                        'Peritoneal_Cancer_NOS','Pleural_Cancer_NOS','Prostate_Cancer_NOS','Skin_Cancer_NOS','Soft_Tissue_Cancer_NOS',
-                        'Stomach_Cancer_NOS','Testicular_Cancer_NOS','Thymic_Cancer_NOS','Thyroid_Cancer_NOS','Uterine_Cancer_NOS',
-                        'Vulvar_Vaginal_Cancer_NOS','']
-
+   tumor_types = []
    for section in config_options:
       if section in user_options:
          for var in config_options[section]:
@@ -143,11 +135,10 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
             if isinstance(config_options[section][var],str) and not isinstance(user_options[section][var],str):
                err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting string)'
                error_message(err_msg, logger)
-            if section == 'tumor_type' and var == 'type':
-               if not str(user_options[section][var]) in valid_tumor_types:
-                  err_msg('Configuration value for tumor type (' + str(user_options[section][var]) + ') is not a valid type')
-                  error_message(err_msg, logger)
-            #tier_options = ['pcgr','pcgr_acmg']
+            if section == 'tumor_type':
+               if user_options[section][var]:
+                  tumor_types.append(str(var))
+            tier_options = ['pcgr','pcgr_acmg']
             normalization_options = ['default','exome','genome','exome2genome']
             populations_tgp = ['afr','amr','eas','sas','eur','global']
             populations_gnomad = ['afr','amr','eas','sas','nfe','oth','fin','asj','global']
@@ -162,10 +153,10 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if int(user_options[section][var]) < 1 or int(user_options[section][var]) > 30:
                   err_msg = "Number of mutational signatures in search space ('mutsignatures_signature_limit') must be positive and not more than 30 (retrieved value: " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
-            # if var == 'tier_model' and not str(user_options[section][var]) in tier_options:
-            #    err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
-            #       ' cannot be parsed properly (expecting \'pcgr\', or \'pcgr_acmg\')'
-            #    error_message(err_msg, logger)
+            if var == 'tier_model' and not str(user_options[section][var]) in tier_options:
+               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
+                  ' cannot be parsed properly (expecting \'pcgr\', or \'pcgr_acmg\')'
+               error_message(err_msg, logger)
             if var == 'pop_gnomad' and not str(user_options[section][var]) in populations_gnomad:
                err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
                   ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
@@ -191,8 +182,8 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                   err_msg = "Maximum AF normal: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
             if var == 'target_size_mb':
-               if user_options[section][var] < 0 or user_options[section][var] > 34:
-                  err_msg = "Target size region in Mb (" + str(user_options[section][var]) + ") is not positive or larger than the likely maximum size of the coding human genome (34 Mb))"
+               if user_options[section][var] < 0 or user_options[section][var] > 50:
+                  err_msg = "Target size region in Mb (" + str(user_options[section][var]) + ") is not positive or larger than the likely maximum size of the coding human genome (50 Mb))"
                   error_message(err_msg,logger)
                if user_options[section][var] < 1:
                   warn_msg = "Target size region in Mb (" + str(user_options[section][var]) + ") must be greater than 1 for mutational burden estimate to be robust (ignoring TMB calculation)"
@@ -210,24 +201,21 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if user_options['cna'][var] < 0:
                   err_msg = "Log ratio for copy number amplifications (" + str(user_options[section][var]) + ") should be greater than zero"
                   error_message(err_msg,logger)
-            if var == 'vep_pick_order':
-               values = str(user_options['other'][var]).split(',')
-               permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length']
-               num_permitted_sources = 0
-               for v in values:
-                  if v in permitted_sources:
-                     num_permitted_sources += 1
-               
-               if num_permitted_sources < 7:
-                  err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length"
-                  error_message(err_msg, logger)
+            if var == 'min_majority' and section == 'dbnsfp':
+               if user_options['dbnsfp'][var] > 10 or user_options['dbnsfp'][var] < 7:
+                  err_msg = "Minimum number of majority votes for consensus calls among dbNSFP predictions should not exceed 10 and should not be less than 7"
+                  error_message(err_msg,logger)
+            if var == 'max_minority' and section == 'dbnsfp':
+               if user_options['dbnsfp'][var] >= config_options['dbnsfp']['min_majority'] or user_options['dbnsfp'][var] > 3 or user_options['dbnsfp'][var] < 0 or (user_options['dbnsfp'][var] + config_options['dbnsfp']['min_majority'] > 10):
+                  err_msg = "Maximum number of minority votes for consensus calls among dbNSFP predictions should not exceed 3 (10 algorithms in total) and should be less than min_majority (" + str(config_options['dbnsfp']['min_majority']) + ")"
+                  error_message(err_msg,logger)
+            
             config_options[section][var] = user_options[section][var]
 
-   
+   if len(tumor_types) > 2:
+      err_msg = "Two many tumor types (", str(",".join(tumor_types)) + ")  set to True - limit is set to two"
+      error_message(err_msg,logger)
    if wflow == 'pcgr':
-      if config_options['tumor_type']['type'] == '':
-         err_msg = "Tumor type not defined - please specify a tumor type in the configuration file ([tumor_type] section)"
-         error_message(err_msg,logger)
       if 'msi' in config_options.keys() and 'mutational_burden' in config_options.keys():
          if config_options['msi']['msi'] == 1 and config_options['mutational_burden']['mutational_burden'] == 0:
             err_msg = "Prediction of MSI status (msi = true) requires mutational burden/target_size input (mutational_burden = true) - this is currently set as false"
@@ -429,7 +417,6 @@ def map_dbnsfp_predictions(dbnsfp_tag, algorithms):
       i = 7
       v = 0
       
-      #print(str(algorithms))
       if len(algorithms) != len(dbnsfp_info[7:]):
          return effect_predictions
       
@@ -538,9 +525,8 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                      ensembl_transcript_id = str(csq_fields[j])
                      if ensembl_transcript_id in transcript_xref_map:
                         for annotation in transcript_xref_map[ensembl_transcript_id].keys():
-                           if annotation != 'SYMBOL':
-                              ## assign additional gene/transcript annotations from the custom transcript xref map (PCGR/CPSR) as key,value pairs in the csq_record object
-                              csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
+                           ## assign additional gene/transcript annotations from the custom transcript xref map (PCGR/CPSR) as key,value pairs in the csq_record object
+                           csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
                      else:
                         logger.warning('Could not find transcript xrefs for ' + str(ensembl_transcript_id))
 

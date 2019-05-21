@@ -18,11 +18,12 @@ def __main__():
    parser.add_argument('gvanno_dir',help='Docker location of gvanno base directory with accompanying data directory, e.g. /data')
    parser.add_argument('input_vcf', help='VCF input file with query variants (SNVs/InDels)')
    parser.add_argument('configuration_file', help='Configuration file (TOML-formatted, e.g. gvanno_conf.toml)')
+   parser.add_argument('vcf_validation',type=int, help="Perform VCF validation with Ensembl's vcf-validator")
    parser.add_argument('genome_assembly',help='grch37 or grch38')
 
    args = parser.parse_args()
    
-   ret = validate_gvanno_input(args.gvanno_dir, args.input_vcf, args.configuration_file, args.genome_assembly)
+   ret = validate_gvanno_input(args.gvanno_dir, args.input_vcf, args.configuration_file, args.vcf_validation, args.genome_assembly)
    if ret != 0:
       sys.exit(-1)
 
@@ -136,7 +137,7 @@ def simplify_vcf(input_vcf, vcf, logger):
    os.system('tabix -p vcf ' + str(input_vcf_gvanno_ready_decomposed) + '.gz')
    os.system('rm -f ' + str(input_vcf_gvanno_ready) + ' /workdir/output/decompose.log')
 
-def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, genome_assembly):
+def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, vcf_validation, genome_assembly):
    """
    Function that reads the input file to gvanno (VCF file) and performs the following checks:
    1. Check that VCF file is properly formatted (according to EBIvariation/vcf-validator - VCF v4.2)
@@ -149,12 +150,12 @@ def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, genom
 
    
    if not input_vcf == 'None':
-      if config_options['other']['vcf_validation']:
+      if vcf_validation == 1:
          valid_vcf = is_valid_vcf(input_vcf, logger)
          if valid_vcf == -1:
             return -1
       else:
-         logger.info('Skipping validation of VCF file - as defined in configuration file (vcf_validation = false)')
+         logger.info('Skipping validation of VCF file - as provided by option --no_vcf_validate')
       tag_check = check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, logger)
       if tag_check == -1:
          return -1

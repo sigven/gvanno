@@ -50,8 +50,9 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'ENSEMBL_PROTEIN_ID':2, 'SYMBOL':3, 'ENTREZ_ID':4, 'UNIPROT_ID':5, 'APPRIS':6,'UNIPROT_ACC':7,
-                        'REFSEQ_MRNA':8, 'CORUM_ID':9,'TUMOR_SUPPRESSOR':10,'ONCOGENE':11,'DISGENET_CUI':12,'MIM_PHENOTYPE_ID':13}
+   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'ENSEMBL_PROTEIN_ID':2, 'SYMBOL':3, 'SYMBOL_ENTREZ':4,'ENTREZ_ID':5, 'UNIPROT_ID':6, 'APPRIS':7,'UNIPROT_ACC':8,
+                        'REFSEQ_MRNA':9, 'CORUM_ID':10,'TUMOR_SUPPRESSOR':11,'ONCOGENE':12,'DISGENET_CUI':13,'MIM_PHENOTYPE_ID':14, 'OPENTARGETS_DISEASE_ASSOCS':15,
+                        'OPENTARGETS_TRACTABILITY_COMPOUND':16, 'OPENTARGETS_TRACTABILITY_ANTIBODY':17}
    
    vcf_info_element_types = {}
    for e in vcf.header_iter():
@@ -79,12 +80,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
       num_chromosome_records_processed += 1
       gvanno_xref = annoutils.make_transcript_xref_map(rec, gvanno_xref_map, xref_tag = "GVANNO_XREF")
 
-      for identifier in ['CSQ','DBNSFP']:
-         if identifier == 'CSQ':
-            csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
-         if identifier == 'DBNSFP':
-            if not rec.INFO.get('DBNSFP') is None:
-               annoutils.map_variant_effect_predictors(rec, dbnsfp_prediction_algorithms)
+      csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
       if 'vep_all_csq' in csq_record_results:
          rec.INFO['VEP_ALL_CSQ'] = ','.join(csq_record_results['vep_all_csq'])
       if 'vep_block' in csq_record_results:
@@ -98,6 +94,9 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
                else:
                   if not record[k] is None:
                      rec.INFO[k] = record[k]
+
+      if not rec.INFO.get('DBNSFP') is None:
+         annoutils.map_variant_effect_predictors(rec, dbnsfp_prediction_algorithms)
 
       w.write_record(rec)
    w.close()

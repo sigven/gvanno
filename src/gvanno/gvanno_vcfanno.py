@@ -44,7 +44,9 @@ def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvann
    """
    Function that annotates a VCF file with vcfanno against a user-defined set of germline and somatic VCF files
    """
-   clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_MEDGEN_CUI","CLINVAR_MEDGEN_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_HGVSP"]
+   clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_MEDGEN_CUI",
+                        "CLINVAR_MEDGEN_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_HGVSP",
+                        "CLINVAR_REVIEW_STATUS_STARS"]
    dbnsfp_info_tags = ["DBNSFP"]
    uniprot_info_tags = ["UNIPROT_FEATURE"]
    gvanno_xref_info_tags = ["GVANNO_XREF"]
