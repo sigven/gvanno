@@ -14,9 +14,9 @@ from argparse import RawTextHelpFormatter
 
 
 
-gvanno_version = '0.9.0'
-db_version = 'GVANNO_DB_VERSION = 20190521'
-vep_version = '96'
+gvanno_version = '1.0.0'
+db_version = 'GVANNO_DB_VERSION = 20190705'
+vep_version = '97'
 global vep_assembly
 
 def __main__():
@@ -81,23 +81,42 @@ def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger)
       gvanno_error_message(err_msg, logger)
    
    
-   boolean_tags = ['vep_skip_intergenic', 'lof_prediction']
-   integer_tags = ['n_vcfanno_proc','n_vep_forks','buffer_size']
-   for section in ['other']:
+
+   for section in gvanno_config_options:
       if section in user_options:
-         for t in boolean_tags:
-            if t in user_options[section]:
-               if not isinstance(user_options[section][t],bool):
-                  err_msg = 'Configuration value ' + str(user_options[section][t]) + ' for ' + str(t) + ' cannot be parsed properly (expecting true/false)'
+         for var in gvanno_config_options[section]:
+            if not var in user_options[section]:
+               continue
+            if isinstance(gvanno_config_options[section][var],bool) and not isinstance(user_options[section][var],bool):
+               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting boolean)'
+               gvanno_error_message(err_msg, logger)
+            if isinstance(gvanno_config_options[section][var],int) and not isinstance(user_options[section][var],int):
+               err_msg = 'Configuration value \"' + str(user_options[section][var]) + '\" for ' + str(var) + ' cannot be parsed properly (expecting integer)'
+               gvanno_error_message(err_msg, logger)
+            if isinstance(gvanno_config_options[section][var],float) and (not isinstance(user_options[section][var],float) and not isinstance(user_options[section][var],int)):
+               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting float)'
+               gvanno_error_message(err_msg, logger)
+            if isinstance(gvanno_config_options[section][var],str) and not isinstance(user_options[section][var],str):
+               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting string)'
+               gvanno_error_message(err_msg, logger)
+            if var == 'vep_pick_order':
+               values = str(user_options['other'][var]).split(',')
+               permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane']
+               num_permitted_sources = 0
+               for v in values:
+                  if v in permitted_sources:
+                     num_permitted_sources += 1
+               
+               if num_permitted_sources != 8:
+                  err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length,mane"
                   gvanno_error_message(err_msg, logger)
-               gvanno_config_options[section][t] = int(user_options[section][t])
-         for t in integer_tags:
-            if t in user_options[section]:
-               if not isinstance(user_options[section][t],int):
-                  err_msg = 'Configuration value ' + str(user_options[section][t]) + ' for ' + str(t) + ' cannot be parsed properly (expecting integer)'
-                  gvanno_error_message(err_msg, logger)
-               gvanno_config_options[section][t] = user_options[section][t]
-   
+            
+            if user_options[section][var] is False:
+               user_options[section][var] = 0
+            if user_options[section][var] is True:
+               user_options[section][var] = 1
+            gvanno_config_options[section][var] = user_options[section][var]
+
    return gvanno_config_options
 
 
@@ -259,7 +278,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_pass_vcf = 'None'
    uid = ''
    vep_assembly = 'GRCh38'
-   gencode_version = 'release 30'
+   gencode_version = 'release 31'
    if genome_assembly == 'grch37':
       gencode_version = 'release 19'
       vep_assembly = 'GRCh37'
@@ -333,9 +352,8 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
       fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
-      pick_order = "canonical,appris,tsl,biotype,ccds,rank,length"
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
-      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + pick_order + " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
+      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(config_options['other']['vep_pick_order']) + " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:

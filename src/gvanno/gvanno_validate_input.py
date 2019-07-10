@@ -146,7 +146,7 @@ def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, vcf_v
    4. Any genotype data from VCF input file is stripped, and the resulting VCF file is sorted and indexed (bgzip + tabix) 
    """
    logger = annoutils.getlogger('gvanno-validate-input')
-   config_options = annoutils.read_config_options(configuration_file, gvanno_directory, genome_assembly, logger, wflow = 'gvanno')
+   #config_options = annoutils.read_config_options(configuration_file, gvanno_directory, genome_assembly, logger, wflow = 'gvanno')
 
    
    if not input_vcf == 'None':

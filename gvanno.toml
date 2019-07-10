@@ -13,3 +13,5 @@ lof_prediction = true
 ## VEP internal buffer size
 ## the number of variants that are read in to memory simultaneously 
 buffer_size = 5000
+## Customise the order of criteria used to pick the primary transcript in VEP (see https://www.ensembl.org/info/docs/tools/vep/script/vep_options.html#opt_pick_order)
+vep_pick_order = "canonical,appris,biotype,ccds,rank,tsl,length,mane"
