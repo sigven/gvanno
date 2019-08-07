@@ -27,36 +27,6 @@ The germline variant annotator (*gvanno*) is a simple, Docker-based software pac
      * Data bundle updates: ClinVar, UniProt
 	* Adding gene-disease associations from [Open Targets Platform](https://targetvalidation.org),([Carvalho-Silva et. al, NAR, 2019](https://www.ncbi.nlm.nih.gov/pubmed/30462303))
 	* Moved *vcf-validation* configuration to command-line option
-* March 21st 2019 - **0.8.0 release**
-     * Data bundle updates: ClinVar, UniProt, GWAS catalog
-     * Bundle bug: Missing VEP FASTA file for grch38
-* February 4th 2019 - **0.7.0 release**
-     * Docker image update - VEP v95
-     * Data bundle updates: ClinVar, DisGenet, dbNSFP and UniProt
-     * Omission of loss-of-function annotations in output when LOFTEE prediction is switched OFF
-* December 7th 2018 - **0.6.0 release**
-	* ClinVar, GWAS and UniProt update
-* October 5th 2018 - **0.5.0 release**
-	* VEP update (v94)
-	* Fixed bug in assessment of predicted splice variant effect (dbscSNV annotations)
-	* Data bundle update (ClinVar, Pfam)
-* September 29th 2018 - **0.4.1 release**
-	* Data bundle corrections (GENCODE)
-	* Added Ensembl gene ID, transcript ID and corresponding RefSeq transcript ID(s) to output
-	* Added NHGRI-EBI GWAS Catalog to annotation
-* September 15th 2018 - **0.4.0 release**
-	* VEP upgrade (v93)
-	* Data bundle update (ClinVar 20180906)
-	* Code restructuring
-	* Running of LOFTEE can be configured
-* July 5th 2018 - **0.3.1 release**
-     * Data bundle updates (ClinVar, UniProt)
-     * Addition of [VEP LOFTEE plugin](https://github.com/konradjk/loftee) - predicts loss-of-function variants
-* April 20th 2018 - **0.3.0 release**
-	* Runs under Python3
-	* VEP version 92
-	* Support for grch38
-	* Data bundle updates (ClinVar, UniProt)
 
 ### Getting started
 
