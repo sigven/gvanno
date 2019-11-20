@@ -48,6 +48,19 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
    - CPUs: minimum 4
    - [How to - Mac OS X](https://docs.docker.com/docker-for-mac/#advanced)
 
+##### STEP 1.1: Installation of Singularity (optional)
+0. NB, this has only been tested with Singularity version 2.4.2, your mileage may vary with other versions.
+1. [Install Singularity](https://sylabs.io/docs/)
+2. Test that singularity works by running `singularity --version`
+3. If you are in the gvanno directory, build the singularity image like so:
+```bash
+cd src
+```
+Now you can build the singularity image with:
+```bash
+sudo ./buildSingularity.sh
+```
+
 #### STEP 2: Download *gvanno* and data bundle
 
 1. Download and unpack the [latest software release (1.0.0)](https://github.com/sigven/gvanno/releases/tag/v1.0.0)
@@ -78,7 +91,7 @@ A few elements of the workflow can be figured using the *gvanno* configuration f
 
 Run the workflow with **gvanno.py**, which takes the following arguments and options:
 
-		usage: gvanno.py [options] <QUERY_VCF> <GVANNO_DIR> <OUTPUT_DIR> <GENOME_ASSEMBLY> <CONFIG_FILE> <SAMPLE_ID>
+		usage: gvanno.py [options] <QUERY_VCF> <GVANNO_DIR> <OUTPUT_DIR> <GENOME_ASSEMBLY> <CONFIG_FILE> <SAMPLE_ID> --container <docker || singularity>
 
 		Germline variant annotation (gvanno) workflow for clinical and functional interpretation of germline nucleotide variants
 
@@ -89,6 +102,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 		{grch37,grch38}     grch37 or grch38
 		configuration_file  gvanno configuration file (TOML format)
 		sample_id           Sample identifier - prefix for output files
+		--container         Set to either docker or singularity
 
 		optional arguments:
 		-h, --help          show this help message and exit

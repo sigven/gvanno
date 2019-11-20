@@ -14,9 +14,10 @@ from argparse import RawTextHelpFormatter
 
 
 
-gvanno_version = '1.0.0'
+#gvanno_version = '1.0.0'
+gvanno_version = '20191113'
 db_version = 'GVANNO_DB_VERSION = 20190705'
-vep_version = '97'
+vep_version = '98'
 global vep_assembly
 
 def __main__():
@@ -25,6 +26,7 @@ def __main__():
    parser.add_argument('--force_overwrite', action = "store_true", help='The script will fail with an error if the output file already exists. Force the overwrite of existing result files by using this flag')
    parser.add_argument('--version', action='version', version='%(prog)s ' + str(gvanno_version))
    parser.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator")
+   parser.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
    parser.add_argument('query_vcf', help='VCF input file with germline query variants (SNVs/InDels)')
    parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-0.9.0')
    parser.add_argument('output_dir',help='Output directory')
@@ -56,7 +58,7 @@ def __main__():
       gvanno_error_message(err_msg,logger)
    host_directories = verify_input_files(args.query_vcf, args.configuration_file, config_options, args.gvanno_dir, args.output_dir, args.sample_id, args.genome_assembly, overwrite, logger)
 
-   run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.no_vcf_validate, args.genome_assembly, gvanno_version)
+   run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.no_vcf_validate, args.genome_assembly, gvanno_version, args.container)
 
 
 def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger):
@@ -268,7 +270,7 @@ def getlogger(logger_name):
    
    return logger
 
-def run_gvanno(host_directories, docker_image_version, config_options, sample_id, no_vcf_validate, genome_assembly, gvanno_version):
+def run_gvanno(host_directories, docker_image_version, config_options, sample_id, no_vcf_validate, genome_assembly, gvanno_version, container):
    """
    Main function to run the gvanno workflow using Docker
    """
@@ -315,14 +317,29 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    input_conf_volume_mapping = str(host_directories['input_conf_dir_host']) + ":/workdir/input_conf"
    output_volume_mapping = str(host_directories['output_dir_host']) + ":/workdir/output"
 
-   docker_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(vep_volume_mapping) + " -v=" + str(input_conf_volume_mapping) + " -v=" + str(output_volume_mapping)
-   if host_directories['input_vcf_dir_host'] != 'NA':
-      docker_command_run1 = docker_command_run1  + " -v=" + str(input_vcf_volume_mapping)
-   
-   docker_command_run1 = docker_command_run1 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
-   docker_command_run2 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(output_volume_mapping)
-   docker_command_run2 = docker_command_run2 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
-   docker_command_run_end = '\"'
+   if container == 'docker':
+      container_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(vep_volume_mapping) + " -v=" + str(input_conf_volume_mapping) + " -v=" + str(output_volume_mapping)
+   elif container == 'singularity':
+      container_command_run1 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(vep_volume_mapping) + " -B " + str(input_conf_volume_mapping) + " -B " + str(output_volume_mapping)
+
+   if host_directories['input_vcf_dir_host'] != 'NA' and container == 'docker':
+      container_command_run1 = container_command_run1  + " -v=" + str(input_vcf_volume_mapping)
+   elif host_directories['input_vcf_dir_host'] != 'NA' and container == 'singularity':
+      container_command_run1 = container_command_run1  + " -B " + str(input_vcf_volume_mapping)
+
+   if container == 'docker':
+      container_command_run1 = container_command_run1 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
+   elif container == 'singularity':
+      container_command_run1 = container_command_run1 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
+
+   if container == 'docker':
+      container_command_run2 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(output_volume_mapping)
+      container_command_run2 = container_command_run2 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
+      docker_command_run_end = '\"'
+   elif container == 'singularity':
+      container_command_run2 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(output_volume_mapping)
+      container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
+      docker_command_run_end = '\"'
 
    logger = getlogger("gvanno-start")
    logger.info("--- germline variant annotation (gvanno) workflow ----")
@@ -333,7 +350,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    ## verify VCF and CNA segment file
    logger = getlogger('gvanno-validate-input')
    logger.info("STEP 0: Validate input data")
-   vcf_validate_command = str(docker_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + str(input_conf_docker) + " " + str(vcf_validation) + " "  + str(genome_assembly) + docker_command_run_end
+   vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + str(input_conf_docker) + " " + str(vcf_validation) + " "  + str(genome_assembly) + docker_command_run_end
 
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
@@ -358,9 +375,9 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
          vep_options = vep_options + " --plugin LoF"
-      vep_main_command = str(docker_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
-      vep_bgzip_command = docker_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
-      vep_tabix_command = str(docker_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
+      vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
+      vep_bgzip_command = container_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
+      vep_tabix_command = str(container_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
       logger = getlogger('gvanno-vep')
    
       print()
@@ -378,7 +395,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger('gvanno-vcfanno')
       logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
-      gvanno_vcfanno_command = str(docker_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
+      gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
       #return
@@ -387,15 +404,15 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Gene annotations with gvanno-summarise")
-      gvanno_summarise_command = str(docker_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + " " + str(config_options['other']['lof_prediction']) + docker_command_run_end
+      gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + " " + str(config_options['other']['lof_prediction']) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       
-      create_output_vcf_command1 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(output_vcf) + "\""
-      create_output_vcf_command2 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + '.tbi ' + str(output_vcf) + '.tbi' + "\""
-      create_output_vcf_command3 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + ' ' + str(output_pass_vcf) + "\""
-      create_output_vcf_command4 = str(docker_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + '.tbi ' + str(output_pass_vcf) + '.tbi' + "\""
-      clean_command = str(docker_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + docker_command_run_end
+      create_output_vcf_command1 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(output_vcf) + "\""
+      create_output_vcf_command2 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + '.tbi ' + str(output_vcf) + '.tbi' + "\""
+      create_output_vcf_command3 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + ' ' + str(output_pass_vcf) + "\""
+      create_output_vcf_command4 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + '.tbi ' + str(output_pass_vcf) + '.tbi' + "\""
+      clean_command = str(container_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + docker_command_run_end
       check_subprocess(create_output_vcf_command1)
       check_subprocess(create_output_vcf_command2)
       check_subprocess(create_output_vcf_command3)
@@ -405,8 +422,8 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       print()
       logger = getlogger("gvanno-vcf2tsv")
       logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsv")
-      gvanno_vcf2tsv_command_pass = str(docker_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
-      gvanno_vcf2tsv_command_all = str(docker_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
+      gvanno_vcf2tsv_command_pass = str(container_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
+      gvanno_vcf2tsv_command_all = str(container_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS variants only")
       check_subprocess(gvanno_vcf2tsv_command_pass)
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS and non-PASS variants")
@@ -419,4 +436,3 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    
    
 if __name__=="__main__": __main__()
-
