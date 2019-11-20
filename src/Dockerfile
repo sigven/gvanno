@@ -13,7 +13,10 @@ RUN apt-get update && apt-get -y install \
     perl \
     perl-base \
     unzip \
-    wget && \
+    wget \
+    libbz2-1.0 \
+    libbz2-dev \
+    liblzma-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Setup VEP environment
@@ -22,6 +25,7 @@ ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
 # Branch to clone, e.g. "-b release/96"
 ENV BRANCH ""
+ENV VEPBRANCH "release/98.3"
 
 # Working directory
 WORKDIR $OPT_SRC
@@ -32,7 +36,7 @@ RUN git clone $BRANCH --depth 1 https://github.com/Ensembl/ensembl.git && \
     cp ensembl/cpanfile ensembl_cpanfile && \
     rm -rf ensembl && \
     # Clone ensembl-vep git repository
-    git clone $BRANCH --depth 1 https://github.com/Ensembl/ensembl-vep.git && chmod u+x ensembl-vep/*.pl && \
+    git clone -b $VEPBRANCH --depth 1 https://github.com/Ensembl/ensembl-vep.git && chmod u+x ensembl-vep/*.pl && \
     # Clone ensembl-variation git repository and compile C code
     git clone $BRANCH --depth 1 https://github.com/Ensembl/ensembl-variation.git && \
     mkdir var_c_code && \
@@ -71,7 +75,7 @@ RUN make install && rm -f Makefile *.c cram/*.c
 
 # Compile Variation LD C scripts
 WORKDIR $OPT_SRC/var_c_code
-RUN make && rm -f Makefile *.c
+RUN make -j && rm -f Makefile *.c
 
 
 ###################################################
@@ -123,11 +127,11 @@ USER root
 
 # Install bioperl-ext, faster alignments for haplo (XS-based BioPerl extensions to C libraries)
 WORKDIR $OPT_SRC/bioperl-ext/Bio/Ext/Align/
-RUN perl Makefile.PL && make && make install && rm -f Makefile*
+RUN perl Makefile.PL && make -j && make install && rm -f Makefile*
 
 # Install ensembl-xs, faster run using re-implementation in C of some of the Perl subroutines
 WORKDIR $OPT_SRC/ensembl-xs
-RUN perl Makefile.PL && make && make install && rm -f Makefile*
+RUN perl Makefile.PL && make -j && make install && rm -f Makefile*
 
 WORKDIR $OPT_SRC
 # Install/compile more libraries
@@ -211,7 +215,7 @@ WORKDIR /
 
 RUN wget https://github.com/samtools/samtools/releases/download/1.9/samtools-1.9.tar.bz2
 RUN bunzip2 -dc samtools-1.9.tar.bz2 | tar xvf -
-RUN cd samtools-1.9 && ./configure --prefix=/usr/local/bin && make && make install
+RUN cd samtools-1.9 && ./configure --prefix=/usr/local/bin && make -j && make install
 
 WORKDIR /
 
@@ -224,7 +228,7 @@ RUN wget http://ab-initio.mit.edu/nlopt/nlopt-2.4.2.tar.gz \
 		&& gzip -dc nlopt-2.4.2.tar.gz | tar xvf - \
 		&& cd nlopt-2.4.2 \
     && ./configure \
-		&& make \
+		&& make -j \
 		&& make install
 
 RUN apt-get update \
@@ -237,7 +241,7 @@ WORKDIR /
 
 RUN git clone https://github.com/atks/vt.git
 WORKDIR vt
-RUN make
+RUN make -j
 RUN make test
 RUN cp vt /usr/local/bin
 #RUN ln -s /usr/bin/python3.6 /usr/local/bin/python
