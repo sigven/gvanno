@@ -14,9 +14,9 @@ from argparse import RawTextHelpFormatter
 
 
 
-#gvanno_version = '1.0.0'
-gvanno_version = '20191113'
-db_version = 'GVANNO_DB_VERSION = 20190705'
+gvanno_version = '1.1.0'
+#gvanno_version = '20191113'
+db_version = 'GVANNO_DB_VERSION = 20191120'
 vep_version = '98'
 global vep_assembly
 
@@ -42,13 +42,14 @@ def __main__():
       overwrite = 1
       
    # check that script and Docker image version correspond
-   check_docker_command = 'docker images -q ' + str(docker_image_version)
-   output = subprocess.check_output(str(check_docker_command), stderr=subprocess.STDOUT, shell=True)
-   logger = getlogger('gvanno-check-files')
-   
-   if(len(output) == 0):
-      err_msg = 'Docker image ' + str(docker_image_version) + ' does not exist, pull image from Dockerhub (docker pull ' + str(docker_image_version) + ')'
-      gvanno_error_message(err_msg,logger)
+   if args.container == 'docker':
+      check_docker_command = 'docker images -q ' + str(docker_image_version)
+      output = subprocess.check_output(str(check_docker_command), stderr=subprocess.STDOUT, shell=True)
+      logger = getlogger('gvanno-check-files')
+      
+      if(len(output) == 0):
+         err_msg = 'Docker image ' + str(docker_image_version) + ' does not exist, pull image from Dockerhub (docker pull ' + str(docker_image_version) + ')'
+         gvanno_error_message(err_msg,logger)
    
    config_options = {}
    if os.path.exists(args.configuration_file):
