@@ -40,12 +40,19 @@ def __main__():
    overwrite = 0
    if args.force_overwrite is True:
       overwrite = 1
-      
+   
+   logger = getlogger('gvanno-check-workflow')
+
+   if args.container is None:
+      err_msg = 'Please specify whether the gvanno workflow is running through Docker or Singularity (--container <docker|singularity>)'
+      gvanno_error_message(err_msg, logger)
+
+   logger = getlogger('gvanno-check-files')
+
    # check that script and Docker image version correspond
    if args.container == 'docker':
       check_docker_command = 'docker images -q ' + str(docker_image_version)
       output = subprocess.check_output(str(check_docker_command), stderr=subprocess.STDOUT, shell=True)
-      logger = getlogger('gvanno-check-files')
       
       if(len(output) == 0):
          err_msg = 'Docker image ' + str(docker_image_version) + ' does not exist, pull image from Dockerhub (docker pull ' + str(docker_image_version) + ')'
@@ -275,7 +282,6 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    """
    Main function to run the gvanno workflow using Docker
    """
-   
    ## set basic Docker run commands
    output_vcf = 'None'
    output_pass_vcf = 'None'
@@ -370,12 +376,17 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
       fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
-      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds --uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
-      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(config_options['other']['vep_pick_order']) + " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
+      ancestor_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "human_ancestor.fa.gz")
+      loftee_dir = '/opt/vep/src/ensembl-vep/modules'
+      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
+         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
+      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(config_options['other']['vep_pick_order']) + \
+         " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + \
+         str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
-         vep_options = vep_options + " --plugin LoF"
+         vep_options += " --plugin LoF,loftee_path:" + loftee_dir + ",human_ancestor_fa:" + str(ancestor_assembly)  + ",use_gerp_end_trunc:0 --dir_plugins " + loftee_dir
       vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
       vep_bgzip_command = container_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
       vep_tabix_command = str(container_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
