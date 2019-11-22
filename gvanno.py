@@ -15,7 +15,6 @@ from argparse import RawTextHelpFormatter
 
 
 gvanno_version = '1.1.0'
-#gvanno_version = '20191113'
 db_version = 'GVANNO_DB_VERSION = 20191120'
 vep_version = '98'
 global vep_assembly
@@ -28,7 +27,7 @@ def __main__():
    parser.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator")
    parser.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
    parser.add_argument('query_vcf', help='VCF input file with germline query variants (SNVs/InDels)')
-   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-0.9.0')
+   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.1.0')
    parser.add_argument('output_dir',help='Output directory')
    parser.add_argument('genome_assembly',choices = ['grch37','grch38'], help='grch37 or grch38')
    parser.add_argument('configuration_file',help='gvanno configuration file (TOML format)')
