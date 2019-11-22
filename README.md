@@ -21,8 +21,8 @@ The germline variant annotator (*gvanno*) is a simple, Docker-based software pac
 
 ### News
 * November 22nd 2019 - **1.1.0 release**
-     * Ability to install and run workflow using [Singularity](https://sylabs.io/docs/), excellent contribution by @oskarvid, see step 1.1 in _Getting Started_
-	*
+     * Ability to install and run workflow using [Singularity](https://sylabs.io/docs/), excellent contribution by [@oskarvid](https://github.com/oskarvid), see step 1.1 in _Getting Started_
+	* Data and software updates (ClinVar, UniProt, VEP)
 * July 10th 2019 - **1.0.0 release**
      * Docker image update - VEP v97 (GENCODE 31/19)
      * Data bundle updates: ClinVar, UniProt, GWAS catalog
@@ -65,7 +65,7 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1. Download and unpack the [latest software release (1.0.0)](https://github.com/sigven/gvanno/releases/tag/v1.0.0)
+1. Download and unpack the [latest software release (1.1.0)](https://github.com/sigven/gvanno/releases/tag/v1.1.0)
 2. Download and unpack the assembly-specific data bundle in the gvanno directory
    * [grch37 data bundle](https://drive.google.com/file/d/183S5XnTrPi1DDlVlO5_Cwmu73BAJZTAK) (approx 14Gb)
    * [grch38 data bundle](https://drive.google.com/file/d/1ZAjuPP7B2T0WgUsoZf20MTujZY9YNCN2) (approx 15Gb)
