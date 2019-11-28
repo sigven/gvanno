@@ -101,7 +101,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 		positional arguments:
 		query_vcf           VCF input file with germline query variants (SNVs/InDels)
-		gvanno_dir          gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.0.0
+		gvanno_dir          gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.1.0
 		output_dir          Output directory
 		{grch37,grch38}     grch37 or grch38
 		configuration_file  gvanno configuration file (TOML format)
