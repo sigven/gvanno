@@ -14,9 +14,9 @@ from argparse import RawTextHelpFormatter
 
 
 
-gvanno_version = '1.1.0'
-db_version = 'GVANNO_DB_VERSION = 20191120'
-vep_version = '98'
+gvanno_version = '1.3.0'
+db_version = 'GVANNO_DB_VERSION = 20200506'
+vep_version = '100'
 global vep_assembly
 
 def __main__():
@@ -27,7 +27,7 @@ def __main__():
    parser.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator")
    parser.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
    parser.add_argument('query_vcf', help='VCF input file with germline query variants (SNVs/InDels)')
-   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.1.0')
+   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.3.0')
    parser.add_argument('output_dir',help='Output directory')
    parser.add_argument('genome_assembly',choices = ['grch37','grch38'], help='grch37 or grch38')
    parser.add_argument('configuration_file',help='gvanno configuration file (TOML format)')
@@ -286,7 +286,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_pass_vcf = 'None'
    uid = ''
    vep_assembly = 'GRCh38'
-   gencode_version = 'release 31'
+   gencode_version = 'release 33'
    if genome_assembly == 'grch37':
       gencode_version = 'release 19'
       vep_assembly = 'GRCh37'

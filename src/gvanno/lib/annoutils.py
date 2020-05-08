@@ -6,6 +6,7 @@ import logging
 import gzip
 import toml
 from cyvcf2 import VCF, Writer
+import subprocess
 
 
 csv.field_size_limit(500 * 1024 * 1024)
@@ -33,6 +34,16 @@ def read_infotag_file(vcf_info_tags_tsv):
    
    return info_tag_xref
 
+def check_subprocess(command):
+   #if debug:
+      #logger.info(command)
+   try:
+      output = subprocess.check_output(str(command), stderr=subprocess.STDOUT, shell=True)
+      if len(output) > 0:
+         print (str(output.decode()).rstrip())
+   except subprocess.CalledProcessError as e:
+      print (e.output.decode())
+      exit(0)
 
 def error_message(message, logger):
    logger.error('')
@@ -92,6 +103,113 @@ def getlogger(logger_name):
 	return logger
 
 
+def is_valid_vcf(input_vcf, output_dir, logger, debug):
+   """
+   Function that reads the output file of EBIvariation/vcf-validator and reports potential errors and validation status
+   """
+
+   logger.info('Validating VCF file with EBIvariation/vcf-validator (v0.9.3)')
+   vcf_validation_output_file = os.path.join(output_dir, re.sub(r'(\.vcf$|\.vcf\.gz$)', '.vcf_validator_output', os.path.basename(input_vcf)))
+   command_v42 = 'vcf_validator -i ' + str(input_vcf) + ' -l warning -r text -o ' + str(output_dir) + ' > ' + str(vcf_validation_output_file)  + ' 2>&1'
+   if debug:
+      logger.info(command_v42)
+   try:
+      subprocess.run(command_v42, stderr=subprocess.STDOUT, shell=True)
+   except subprocess.CalledProcessError as e:
+      print (e.output.decode())
+      exit(0)
+
+   #is_valid_vcf = -1
+   validation_results = {}
+   validation_results['validation_status'] = 0
+   validation_results['error_messages'] = []
+   validation_error_fname = None
+   if os.path.exists(vcf_validation_output_file):
+      f = open(vcf_validation_output_file, 'r')
+      for line in f:
+         if 'Text report written to' in line.rstrip():
+            validation_error_fname = re.split(r' : ',line.rstrip(),maxsplit=2)[1]
+      f.close()
+      if not debug:
+         check_subprocess('rm -f ' + str(vcf_validation_output_file))
+
+   if validation_error_fname is None:
+      err_msg = 'Cannot find file with error messages from vcf_validator'
+      return error_message(err_msg, logger)
+
+   if os.path.exists(validation_error_fname):
+      f = open(validation_error_fname, 'r')
+      for line in f:
+         if not re.search(r' \(warning\)$|^Reading from ',line.rstrip()): ## ignore warnings
+            if line.startswith('Line '):
+               validation_results['error_messages'].append('ERROR: ' + line.rstrip())
+            if 'the input file is valid' in line.rstrip(): ## valid VCF
+               validation_results['validation_status'] = 1
+            if 'the input file is not valid' in line.rstrip():  ## non-valid VCF
+               validation_results['validation_status'] = 0
+      f.close()
+      if not debug:
+         check_subprocess('rm -f ' + str(validation_error_fname))
+   else:
+      err_msg = str(validation_error_fname) + ' does not exist'
+      return error_message(err_msg, logger)
+
+   if validation_results['validation_status'] == 0:
+      error_string_42 = '\n'.join(validation_results['error_messages'])
+      validation_status = 'According to the VCF specification, the VCF file (' + str(input_vcf) + ') is NOT valid'
+      err_msg = validation_status + ':\n' + str(error_string_42)
+      return error_message(err_msg, logger)
+   else:
+      validation_status = 'According to the VCF specification, the VCF file ' + str(input_vcf) + ' is valid'
+      logger.info(validation_status)
+   return 0
+
+
+def get_correct_cpg_transcript(vep_csq_records):
+
+  
+   csq_idx = 0
+   if len(vep_csq_records) == 1:
+      return csq_idx
+
+   ## some variants iare assigned multiple transcript consequences
+   ## if cancer predisposition genes are in the vicinity of other genes, choose the cancer predisposition gene
+   ## if there are neighbouring cancer-predispositon genes, choose custom gene, preferring coding change (see below, KLLN/PTEN, XPC/TMEM43, NTHL1/TSC2)
+   csq_idx_dict = {}
+   for g in ['KLLN','PTEN','XPC','TMEM43','NTHL1','TSC2']:
+      csq_idx_dict[g] = {}
+      csq_idx_dict[g]['idx'] = -1
+      csq_idx_dict[g]['coding'] = False
+
+   j = 0
+   while j < len(vep_csq_records):
+      if 'CANCER_PREDISPOSITION_SOURCE' in vep_csq_records[j].keys() or 'GE_PANEL_ID' in vep_csq_records[j].keys():
+         csq_idx = j
+         if 'SYMBOL' in vep_csq_records[j].keys():
+            if vep_csq_records[j]['SYMBOL'] in csq_idx_dict.keys():
+               csq_idx_dict[str(vep_csq_records[j]['SYMBOL'])]['idx'] = j
+               if vep_csq_records[j]['CODING_STATUS'] == 'coding':
+                  csq_idx_dict[str(vep_csq_records[j]['SYMBOL'])]['coding'] = True
+      j = j + 1
+   
+   if csq_idx_dict['KLLN']['idx'] != -1 and csq_idx_dict['PTEN']['idx'] != -1:
+      csq_idx = csq_idx_dict['PTEN']['idx']
+      if csq_idx_dict['KLLN']['coding'] is True:
+         csq_idx = csq_idx_dict['KLLN']['idx']
+   
+   if csq_idx_dict['XPC']['idx'] != -1 and csq_idx_dict['TMEM43']['idx'] != -1:
+      csq_idx = csq_idx_dict['XPC']['idx']
+      if csq_idx_dict['TMEM43']['coding'] is True:
+         csq_idx = csq_idx_dict['TMEM43']['idx']
+   
+   if csq_idx_dict['TSC2']['idx'] != -1 and csq_idx_dict['NTHL1']['idx'] != -1:
+      csq_idx = csq_idx_dict['TSC2']['idx']
+      if csq_idx_dict['NTHL1']['coding'] is True:
+         csq_idx = csq_idx_dict['NTHL1']['idx']
+
+   return csq_idx
+
+
 def read_config_options(configuration_file, base_dir, genome_assembly, logger, wflow = 'pcgr'):
    
    ## read default options
@@ -117,14 +235,10 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
       err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
       error_message(err_msg, logger)
    
-   valid_tumor_types = ['Adrenal_Gland_Cancer_NOS','Ampullary_Carcinoma_NOS','Biliary_Tract_Cancer_NOS','Bladder_Urinary_Tract_Cancer_NOS',
-                        'Bone_Cancer_NOS','Breast_Cancer_NOS','Cancer_Unknown_Primary_NOS','Cervical_Cancer_NOS','CNS_Brain_Cancer_NOS',
-                        'Colorectal_Cancer_NOS','Esophageal_Cancer_NOS','Head_And_Neck_Cancer_NOS','Kidney_Cancer','Leukemia_NOS',
-                        'Liver_Cancer_NOS','Lung_Cancer_NOS','Lymphoma_Hodgkin_NOS','Lymphoma_Non_Hodgkin_NOS','Multiple_Myeloma_NOS',
-                        'Ovarian_Fallopian_Tube_Cancer_NOS','Pancreatic_Cancer_NOS','Penile_Cancer_NOS','Peripheral_Nervous_System_Cancer_NOS',
-                        'Peritoneal_Cancer_NOS','Pleural_Cancer_NOS','Prostate_Cancer_NOS','Skin_Cancer_NOS','Soft_Tissue_Cancer_NOS',
-                        'Stomach_Cancer_NOS','Testicular_Cancer_NOS','Thymic_Cancer_NOS','Thyroid_Cancer_NOS','Uterine_Cancer_NOS',
-                        'Vulvar_Vaginal_Cancer_NOS','']
+   # valid_tumor_types = ['Any','Adrenal Gland', 'Ampulla of Vater', 'Biliary Tract', 'Bladder/Urinary Tract','Bone','Breast','Cervix'
+   #                      'CNS/Brain','Colon/Rectum','Esophagus/Stomach','Eye','Head and Neck','Kidney','Liver','Lung','Lymphoid',
+   #                      'Myeloid','Other/Unknown','Ovary/Fallopian Tube','Pancreas','Peripheral Nervous System','Peritoneum',
+   #                      'Pleura','Prostate','Skin','Soft Tissue','Testis','Thymus','Thyroid','Uterus','Vulva/Vagina']
 
    for section in config_options:
       if section in user_options:
@@ -143,11 +257,10 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
             if isinstance(config_options[section][var],str) and not isinstance(user_options[section][var],str):
                err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting string)'
                error_message(err_msg, logger)
-            if section == 'tumor_type' and var == 'type':
-               if not str(user_options[section][var]) in valid_tumor_types:
-                  err_msg('Configuration value for tumor type (' + str(user_options[section][var]) + ') is not a valid type')
-                  error_message(err_msg, logger)
-            #tier_options = ['pcgr','pcgr_acmg']
+            # if section == 'tumor_type' and var == 'type':
+            #    if not str(user_options[section][var]) in valid_tumor_types:
+            #       err_msg('Configuration value for tumor type (' + str(user_options[section][var]) + ') is not a valid type')
+            #       error_message(err_msg, logger)
             normalization_options = ['default','exome','genome','exome2genome']
             populations_tgp = ['afr','amr','eas','sas','eur','global']
             populations_gnomad = ['afr','amr','eas','sas','nfe','oth','fin','asj','global']
@@ -162,10 +275,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if int(user_options[section][var]) < 1 or int(user_options[section][var]) > 30:
                   err_msg = "Number of mutational signatures in search space ('mutsignatures_signature_limit') must be positive and not more than 30 (retrieved value: " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
-            # if var == 'tier_model' and not str(user_options[section][var]) in tier_options:
-            #    err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
-            #       ' cannot be parsed properly (expecting \'pcgr\', or \'pcgr_acmg\')'
-            #    error_message(err_msg, logger)
             if var == 'pop_gnomad' and not str(user_options[section][var]) in populations_gnomad:
                err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
                   ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
@@ -190,14 +299,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if user_options[section][var] < 0 or user_options[section][var] > 1:
                   err_msg = "Maximum AF normal: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
-            if var == 'target_size_mb':
-               if user_options[section][var] < 0 or user_options[section][var] > 34:
-                  err_msg = "Target size region in Mb (" + str(user_options[section][var]) + ") is not positive or larger than the likely maximum size of the coding human genome (34 Mb))"
-                  error_message(err_msg,logger)
-               if user_options[section][var] < 1:
-                  warn_msg = "Target size region in Mb (" + str(user_options[section][var]) + ") must be greater than 1 for mutational burden estimate to be robust (ignoring TMB calculation)"
-                  warn_message(warn_msg,logger)
-                  config_options[section]['mutational_burden'] = False
             if var == 'cna_overlap_pct':
                if user_options['cna'][var] > 100 or user_options['cna'][var] <= 0:
                   err_msg = "Minimum percent overlap between copy number segment and gene transcript (" + str(user_options[section][var]) + ") should be greater than zero and less than 100"
@@ -212,22 +313,19 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                   error_message(err_msg,logger)
             if var == 'vep_pick_order':
                values = str(user_options['other'][var]).split(',')
-               permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length']
+               permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane']
                num_permitted_sources = 0
                for v in values:
                   if v in permitted_sources:
                      num_permitted_sources += 1
                
-               if num_permitted_sources < 7:
-                  err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length"
+               if num_permitted_sources != 8:
+                  err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length,mane"
                   error_message(err_msg, logger)
             config_options[section][var] = user_options[section][var]
 
    
    if wflow == 'pcgr':
-      #if config_options['tumor_type']['type'] == '':
-         #err_msg = "Tumor type not defined - please specify a tumor type in the configuration file ([tumor_type] section)"
-         #error_message(err_msg,logger)
       if 'msi' in config_options.keys() and 'mutational_burden' in config_options.keys():
          if config_options['msi']['msi'] == 1 and config_options['mutational_burden']['mutational_burden'] == 0:
             err_msg = "Prediction of MSI status (msi = true) requires mutational burden/target_size input (mutational_burden = true) - this is currently set as false"
@@ -429,7 +527,6 @@ def map_dbnsfp_predictions(dbnsfp_tag, algorithms):
       i = 7
       v = 0
       
-      #print(str(algorithms))
       if len(algorithms) != len(dbnsfp_info[7:]):
          return effect_predictions
       
@@ -477,8 +574,10 @@ def make_transcript_xref_map(rec, fieldmap, xref_tag = 'PCGR_ONCO_XREF'):
    return(transcript_xref_map)
 
 def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
-   vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD','gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
-                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD','gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
+   vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD',
+                     'gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
+                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD',
+                     'gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
                      'AMR_AF':'AMR_AF_1KG','SAS_AF':'SAS_AF_1KG','EUR_AF':'EUR_AF_1KG','EAS_AF':'EAS_AF_1KG', 'AF':'GLOBAL_AF_1KG'}
 
    vcf = VCF(query_vcf)
@@ -496,7 +595,7 @@ def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
                if identifier == 'CSQ':
                   i = 0
                   for t in subtags:
-                     v = t
+                     v = t.replace('"','')
                      if t in vep_to_pcgr_af:
                         v = str(vep_to_pcgr_af[t])
                      if v in info_tags_wanted:
@@ -548,8 +647,8 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                   if vep_csq_fields_map['index2field'][j] == 'DOMAINS':
                      domain_identifiers = str(csq_fields[j]).split('&')
                      for v in domain_identifiers:
-                        if v.startswith('Pfam_domain'):
-                           csq_record['PFAM_DOMAIN'] = str(re.sub(r'\.[0-9]{1,}$','',re.sub(r'Pfam_domain:','',v)))
+                        if v.startswith('Pfam'):
+                           csq_record['PFAM_DOMAIN'] = str(re.sub(r'\.[0-9]{1,}$','',re.sub(r'Pfam:','',v)))
                      
                      csq_record['DOMAINS'] = None
                   ## Assign COSMIC/DBSNP mutation ID's as individual key,value pairs in the csq_record object
@@ -558,6 +657,8 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                      cosmic_identifiers = []
                      dbsnp_identifiers = []
                      for v in var_identifiers:
+                        if v.startswith('COSV'):
+                           cosmic_identifiers.append(v)
                         if v.startswith('COSM'):
                            cosmic_identifiers.append(v)
                         if v.startswith('rs'):
@@ -572,6 +673,7 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
          
          ## Assign coding status, protein change, coding sequence change, last exon/intron status etc
          assign_cds_exon_intron_annotations(csq_record)
+         ## Append transcript consequence to all_csq_pick
          all_csq_pick.append(csq_record)
       symbol = '.'
       if csq_fields[vep_csq_fields_map['field2index']['SYMBOL']] != "":
