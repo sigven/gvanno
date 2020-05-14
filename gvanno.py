@@ -14,8 +14,8 @@ from argparse import RawTextHelpFormatter
 
 
 
-gvanno_version = '1.3.0'
-db_version = 'GVANNO_DB_VERSION = 20200506'
+gvanno_version = '1.3.1'
+db_version = 'GVANNO_DB_VERSION = 20200514'
 vep_version = '100'
 global vep_assembly
 
@@ -286,7 +286,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_pass_vcf = 'None'
    uid = ''
    vep_assembly = 'GRCh38'
-   gencode_version = 'release 33'
+   gencode_version = 'release 34'
    if genome_assembly == 'grch37':
       gencode_version = 'release 19'
       vep_assembly = 'GRCh37'
