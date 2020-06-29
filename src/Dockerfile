@@ -101,6 +101,7 @@ RUN apt-get update && apt-get -y install \
   perl \
   perl-base \
   unzip \
+  wget \
   vim && \
   apt-get -y purge manpages-dev && \
   apt-get clean && \
@@ -162,6 +163,9 @@ ENV PERL5LIB $PERL5LIB_TMP
 
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
+ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
+RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/100/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
+
 
 # Final steps
 WORKDIR $OPT_SRC/ensembl-vep
@@ -171,8 +175,7 @@ RUN echo >> $OPT/.profile && \
   echo PATH=$PATH:\$PATH >> $OPT/.profile && \
   echo export PATH >> $OPT/.profile && \
   # Run INSTALL.pl and remove the ensemb-vep tests and travis
-  ./INSTALL.pl -a ap -g miRNA,LoF -l && rm -rf t travisci .travis.yml
-
+  ./INSTALL.pl -a ap -g miRNA,UTRannotator,NearestExonJB,LoF -l && rm -rf t travisci .travis.yml
 WORKDIR /
 
 ######################################################
@@ -242,12 +245,12 @@ RUN sudo -H pip install $PYTHON_MODULES
 #     && make \
 #     && make install
 
-RUN wget https://github.com/stevengj/nlopt/releases/download/nlopt-2.4.2/nlopt-2.4.2.tar.gz \
-		&& gzip -dc nlopt-2.4.2.tar.gz | tar xvf - \
-		&& cd nlopt-2.4.2 \
-    && ./configure \
-		&& make -j \
-		&& make install
+# RUN wget https://github.com/stevengj/nlopt/releases/download/nlopt-2.4.2/nlopt-2.4.2.tar.gz \
+# 		&& gzip -dc nlopt-2.4.2.tar.gz | tar xvf - \
+# 		&& cd nlopt-2.4.2 \
+#     && ./configure \
+# 		&& make -j \
+# 		&& make install
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libpq-dev libxt-dev libudunits2-dev
@@ -278,7 +281,7 @@ VOLUME /data
 
 USER root
 WORKDIR /
-RUN rm -f nlopt-2.4.2.tar.gz
+#RUN rm -f nlopt-2.4.2.tar.gz
 RUN rm -rf $HOME/src/ensembl-vep/t/
 RUN rm -f $HOME/src/v335_base.tar.gz
 RUN rm -f $HOME/src/release-1-6-924.zip
