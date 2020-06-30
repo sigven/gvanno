@@ -45,6 +45,15 @@ def check_subprocess(command):
       print (e.output.decode())
       exit(0)
 
+
+def is_integer(n):
+    try:
+        float(n)
+    except ValueError:
+        return False
+    else:
+        return float(n).is_integer()
+
 def error_message(message, logger):
    logger.error('')
    logger.error(message)
@@ -257,10 +266,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
             if isinstance(config_options[section][var],str) and not isinstance(user_options[section][var],str):
                err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting string)'
                error_message(err_msg, logger)
-            # if section == 'tumor_type' and var == 'type':
-            #    if not str(user_options[section][var]) in valid_tumor_types:
-            #       err_msg('Configuration value for tumor type (' + str(user_options[section][var]) + ') is not a valid type')
-            #       error_message(err_msg, logger)
             normalization_options = ['default','exome','genome','exome2genome']
             populations_tgp = ['afr','amr','eas','sas','eur','global']
             populations_gnomad = ['afr','amr','eas','sas','nfe','oth','fin','asj','global']
@@ -343,7 +348,7 @@ def threeToOneAA(aa_change):
    return aa_change
 
 def map_variant_effect_predictors(rec, algorithms):
-    
+   
    dbnsfp_predictions = map_dbnsfp_predictions(str(rec.INFO.get('DBNSFP')), algorithms)
    if rec.INFO.get('Gene') is None or rec.INFO.get('Consequence') is None:
       return
@@ -390,10 +395,17 @@ def map_variant_effect_predictors(rec, algorithms):
                rec.INFO['DEOGEN2_DBNSFP'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('primateai:'):
                rec.INFO['PRIMATEAI_DBNSFP'] = str(algo_pred.split(':')[1])
+            if algo_pred.startswith('list_s2:'):
+               rec.INFO['LIST_S2_DBNSFP'] = str(algo_pred.split(':')[1])
+            if algo_pred.startswith('bayesdel_addaf:'):
+               rec.INFO['BAYESDEL_ADDAF_DBNSFP'] = str(algo_pred.split(':')[1])
+            if algo_pred.startswith('clinpred:'):
+               rec.INFO['CLINPRED_DBNSFP'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('splice_site_rf:'):
                rec.INFO['SPLICE_SITE_RF_DBNSFP'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('splice_site_ada:'):
                rec.INFO['SPLICE_SITE_ADA_DBNSFP'] = str(algo_pred.split(':')[1])
+            
 
 
 def detect_reserved_info_tag(tag, tag_name, logger):
@@ -413,6 +425,8 @@ def assign_cds_exon_intron_annotations(csq_record):
    csq_record['EXONIC_STATUS'] = 'nonexonic'
    csq_record['SPLICE_DONOR_RELEVANT'] = False
    csq_record['NULL_VARIANT'] = False
+   csq_record['INTRON_POSITION'] = 0
+   csq_record['EXON_POSITION'] = 0
    
    coding_csq_pattern = r"^(stop_|start_lost|frameshift_|missense_|splice_donor|splice_acceptor|protein_altering|inframe_)"
    wes_csq_pattern = r"^(stop_|start_lost|frameshift_|missense_|splice_donor|splice_acceptor|inframe_|protein_altering|synonymous)"
@@ -428,6 +442,22 @@ def assign_cds_exon_intron_annotations(csq_record):
 
    if re.match(r"^splice_region_variant", str(csq_record['Consequence'])) and re.search(r'(\+3(A|G)>|\+4G>|\+5G>)', str(csq_record['HGVSc'])):
       csq_record['SPLICE_DONOR_RELEVANT'] = True
+
+   if re.match(r"splice_region_variant|intron_variant", str(csq_record['Consequence'])):
+      match = re.search(r"((-|\+)[0-9]{1,}(dup|del|inv|((ins|del|dup|inv|delins)(A|G|C|T){1,})|(A|C|T|G){1,}>(A|G|C|T){1,}))$", str(csq_record['HGVSc']))
+      if match is not None:
+         pos = re.sub(r"(\+|dup|del|delins|ins|inv|(A|G|C|T){1,}|>)","",match.group(0))
+         if is_integer(pos):
+            csq_record['INTRON_POSITION'] = int(pos)
+   
+   if re.match(r"synonymous_|missense_|stop_|inframe_|start_", str(csq_record['Consequence'])) and str(csq_record['NearestExonJB']) != "":
+      exon_pos_info = csq_record['NearestExonJB'].split("+")
+      if len(exon_pos_info) == 4:
+         if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "end":
+            csq_record['EXON_POSITION'] = -int(exon_pos_info[1])
+         if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "start":
+            csq_record['EXON_POSITION'] = int(exon_pos_info[1])
+
 
    for m in ['HGVSp_short','CDS_CHANGE']:
       csq_record[m] = '.'

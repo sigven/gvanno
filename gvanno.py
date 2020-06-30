@@ -12,10 +12,8 @@ import platform
 import toml
 from argparse import RawTextHelpFormatter
 
-
-
-gvanno_version = '1.3.1'
-db_version = 'GVANNO_DB_VERSION = 20200514'
+gvanno_version = '1.3.2'
+db_version = 'GVANNO_DB_VERSION = 20200629'
 vep_version = '100'
 global vep_assembly
 
@@ -377,14 +375,16 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
       ancestor_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "human_ancestor.fa.gz")
       loftee_dir = '/opt/vep/src/ensembl-vep/modules'
+      plugins_in_use = "NearestExonJB"
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
-         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq"
+         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq --plugin NearestExonJB,max_range=50000"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(config_options['other']['vep_pick_order']) + \
          " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + \
          str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
+         plugins_in_use = plugins_in_use + ", LoF"
          vep_options += " --plugin LoF,loftee_path:" + loftee_dir + ",human_ancestor_fa:" + str(ancestor_assembly)  + ",use_gerp_end_trunc:0 --dir_plugins " + loftee_dir
       vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
       vep_bgzip_command = container_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
@@ -392,10 +392,12 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       logger = getlogger('gvanno-vep')
    
       print()
-      if config_options['other']['lof_prediction'] == 1:
-         logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ") including loss-of-function prediction")
-      else:
-         logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
+      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
+      logger.info("VEP configuration - one primary consequence block pr. alternative allele (--flack_pick_allele)")
+      logger.info("VEP configuration - transcript pick order: " + str(config_options['other']['vep_pick_order']))
+      logger.info("VEP configuration - transcript pick order: See more at https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick_options")
+      logger.info("VEP configuration - skip intergenic: " + str(config_options['other']['vep_skip_intergenic']))
+      logger.info("VEP configuration - plugins in use: " + str(plugins_in_use))
       check_subprocess(vep_main_command)
       check_subprocess(vep_bgzip_command)
       check_subprocess(vep_tabix_command)

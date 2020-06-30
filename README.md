@@ -2,25 +2,31 @@
 
 ### Overview
 
-The germline variant annotator (*gvanno*) is a simple, Docker-based software package intended for analysis and interpretation of human DNA variants of germline origin. Variants and genes are annotated with disease-related and functional associations from a wide range of sources (see below).
+The germline variant annotator (*gvanno*) is a simple, software package intended for analysis and interpretation of human DNA variants of germline origin. Variants and genes are annotated with disease-related and functional associations from a wide range of sources (see below). Technically, the workflow is built with the [Docker](https://www.docker.com) technology, but it can also be installed through the [Singularity](https://sylabs.io/docs/) framework.
 
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record.
 
-#### Annotation resources included in _gvanno_ - 1.3.0
+#### Annotation resources included in _gvanno_ - 1.3.2
 
-* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v100.0 (GENCODE v33/v19 as the gene reference dataset)
-* [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.0, May 2019)
+* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v100.2 (GENCODE v34/v19 as the gene reference dataset)
+* [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.1, June 2020)
 * [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
 * [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 153) - from VEP
 * [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013) - from VEP
-* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of clinically related variants (April 2020)
-* [DisGeNET](http://www.disgenet.org) - Database of gene-disease associations (v6.0, January 2019)
-* [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2020_04, April 2020)
-* [UniProt/SwissProt KnowledgeBase](http://www.uniprot.org) - Resource on protein sequence and functional information (2020_02, April 2020)
-* [Pfam](http://pfam.xfam.org) - Database of protein families and domains (v32, Sept 2018)
-* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (May 3rd 2020)
+* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of clinically related variants (June 2020)
+* [DisGeNET](http://www.disgenet.org) - Database of gene-disease associations (v7.0, May 2020)
+* [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2020_06, June 2020)
+* [UniProt/SwissProt KnowledgeBase](http://www.uniprot.org) - Resource on protein sequence and functional information (2020_03, June 2020)
+* [Pfam](http://pfam.xfam.org) - Database of protein families and domains (v33.1, May 2020)
+* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (June 13th 2020)
 
 ### News
+* June 30th 2020 - **1.3.2 release**
+     * Data updates (ClinVar, UniProt, GWAS Catalog, Open Targets Platform, Pfam, dbNSFP)
+	     * Using GENCODE v34 as the correct transcript assembly for grch38 (see [issue](https://github.com/Ensembl/ensembl-vep/issues/749))
+		* Three new variant effect predictions from dbNSFP added: [ClinPred](https://doi.org/10.1016/j.ajhg.2018.08.005), [LIST-S2](https://doi.org/10.1093/nar/gkaa288), and [BayesDel](https://doi.org/10.1002/humu.23158)
+	* Added VEP plugin NearestExonJB
+	     * Annotates relative position (to the exon-intron junction) of variants in introns and exons
 * May 8th 2020 - **1.3.0 release**
      * Upgrade of VEP (v100) - GENCODE release 33 (grch38)
 	* Data updates (ClinVar, UniProt, GWAS Catalog, Open Targets Platform)
@@ -55,29 +61,28 @@ An installation of Python (version _3.6_) is required to run *gvanno*. Check tha
    - CPUs: minimum 4
    - [How to - Mac OS X](https://docs.docker.com/docker-for-mac/#advanced)
 
-##### STEP 1.1: Installation of Singularity (optional)
-0. NB, this has only been tested with Singularity version 2.4.2, your mileage may vary with other versions.
+##### 1.1: Installation of Singularity (optional)
+
+0. **Note: this has only been tested with Singularity version 2.4.2, your mileage may vary with other versions**.
 1. [Install Singularity](https://sylabs.io/docs/)
 2. Test that singularity works by running `singularity --version`
 3. If you are in the gvanno directory, build the singularity image like so:
 
 	`cd src`
 
-  	Now you can build the singularity image with:
-
 	`sudo ./buildSingularity.sh`
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1. Download and unpack the [latest software release (1.3.0)](https://github.com/sigven/gvanno/releases/tag/v1.3.0)
+1. Download and unpack the [latest software release (1.3.2)](https://github.com/sigven/gvanno/releases/tag/v1.3.2)
 2. Download and unpack the assembly-specific data bundle in the gvanno directory
-   * [grch37 data bundle](https://drive.google.com/file/d/1TfDVsWw47t-1mG9bSsewOMC3vkGTssEy) (approx 16Gb)
-   * [grch38 data bundle](https://drive.google.com/file/d/1K93S7cTVKfIspf2_zpL7KSOGuzk6tlfs) (approx 17Gb)
+   * [grch37 data bundle](https://drive.google.com/file/d/1XJT8sSngl5T3HHQK2CZtZuwXX3rouEYg/) (approx 16Gb)
+   * [grch38 data bundle](https://drive.google.com/file/d/1M6gioFzvt6XOqRDTx4UXYD5sIVOH55IY) (approx 17Gb)
    * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
-3. Pull the [gvanno Docker image (1.3.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2Gb):
-   * `docker pull sigven/gvanno:1.3.0` (gvanno annotation engine)
+3. Pull the [gvanno Docker image (1.3.2)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 1.9Gb):
+   * `docker pull sigven/gvanno:1.3.2` (gvanno annotation engine)
 
 #### STEP 3: Input preprocessing
 
@@ -105,7 +110,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 		positional arguments:
 		query_vcf           VCF input file with germline query variants (SNVs/InDels)
-		gvanno_dir          gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.1.0
+		gvanno_dir          gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.3.2
 		output_dir          Output directory
 		{grch37,grch38}     grch37 or grch38
 		configuration_file  gvanno configuration file (TOML format)
@@ -121,8 +126,8 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contains an example VCF file. Analysis of the example VCF can be performed by the following command:
 
-`python ~/gvanno-1.3.0/gvanno.py ~/gvanno-1.3.0/examples/example.grch37.vcf.gz --container docker`
-` ~/gvanno-1.3.0 ~/gvanno-1.3.0/examples grch37 ~/gvanno-1.3.0/gvanno.toml example`
+`python ~/gvanno-1.3.2/gvanno.py ~/gvanno-1.3.2/examples/example.grch37.vcf.gz --container docker`
+` ~/gvanno-1.3.2 ~/gvanno-1.3.2/examples grch37 ~/gvanno-1.3.2/gvanno.toml example`
 
 This command will run the Docker-based *gvanno* workflow and produce the following output files in the _examples_ folder:
 
