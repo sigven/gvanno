@@ -25,8 +25,8 @@ The germline variant annotator (*gvanno*) is a simple, software package intended
      * Data updates (ClinVar, UniProt, GWAS Catalog, Open Targets Platform, Pfam, dbNSFP)
 	     * Using GENCODE v34 as the correct transcript assembly for grch38 (see [issue](https://github.com/Ensembl/ensembl-vep/issues/749))
 		* Three new variant effect predictions from dbNSFP added: [ClinPred](https://doi.org/10.1016/j.ajhg.2018.08.005), [LIST-S2](https://doi.org/10.1093/nar/gkaa288), and [BayesDel](https://doi.org/10.1002/humu.23158)
-	* Added VEP plugin NearestExonJB
-	     * Annotates relative position (to the exon-intron junction) of variants in introns and exons
+	* Added VEP plugin [NearestExonJB](https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html#plugins_existing)
+	     * Annotates relative position (to the exon-intron junction) of variants in introns and exons (fields in output: INTRON_POSITION, EXON_POSITION)
 * May 8th 2020 - **1.3.0 release**
      * Upgrade of VEP (v100) - GENCODE release 33 (grch38)
 	* Data updates (ClinVar, UniProt, GWAS Catalog, Open Targets Platform)
