@@ -15,8 +15,8 @@ threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','G
 
 def read_infotag_file(vcf_info_tags_tsv):
    """
-   Function that reads a VCF info tag file that denotes annotation tags produced by PCGR/CPSR/gvanno.
-   An example of the VCF info tag file is the following:
+   Function that reads a file that lists VCF INFO tags produced by PCGR/CPSR/gvanno.
+   An example line of the VCF info tag file is the following:
    
    tag	number	type	description category
    Consequence	.	String	"Impact modifier for the consequence type (picked by VEP's --flag_pick_allele option)."   vep
@@ -61,8 +61,12 @@ def error_message(message, logger):
    exit(1)
 
 def write_pass_vcf(annotated_vcf, logger):
+   """
+   Function prints all PASS variants from a VCF file. New VCF file appends '.pass.' to the filename.
    
-   out_vcf = re.sub(r'\.annotated\.vcf\.gz$','.annotated.pass.vcf',annotated_vcf)
+   """
+   #out_vcf = re.sub(r'\.annotated\.vcf\.gz$','.annotated.pass.vcf',annotated_vcf)
+   out_vcf = re.sub(r'\.vcf\.gz$','.pass.vcf',annotated_vcf)
    vcf = VCF(annotated_vcf)
    w = Writer(out_vcf, vcf)
 
@@ -118,7 +122,11 @@ def is_valid_vcf(input_vcf, output_dir, logger, debug):
    """
 
    logger.info('Validating VCF file with EBIvariation/vcf-validator (v0.9.3)')
+
+   ## Filename for output file from VCF validation
    vcf_validation_output_file = os.path.join(output_dir, re.sub(r'(\.vcf$|\.vcf\.gz$)', '.vcf_validator_output', os.path.basename(input_vcf)))
+   
+   ## Command for running vcf-validator
    command_v42 = 'vcf_validator -i ' + str(input_vcf) + ' -l warning -r text -o ' + str(output_dir) + ' > ' + str(vcf_validation_output_file)  + ' 2>&1'
    if debug:
       logger.info(command_v42)
@@ -128,26 +136,26 @@ def is_valid_vcf(input_vcf, output_dir, logger, debug):
       print (e.output.decode())
       exit(0)
 
-   #is_valid_vcf = -1
+   ## read output file from vcf-validator and get name of log/error file
    validation_results = {}
    validation_results['validation_status'] = 0
    validation_results['error_messages'] = []
-   validation_error_fname = None
+   validation_log_fname = None
    if os.path.exists(vcf_validation_output_file):
       f = open(vcf_validation_output_file, 'r')
       for line in f:
          if 'Text report written to' in line.rstrip():
-            validation_error_fname = re.split(r' : ',line.rstrip(),maxsplit=2)[1]
+            validation_log_fname = re.split(r' : ',line.rstrip(),maxsplit=2)[1]
       f.close()
       if not debug:
          check_subprocess('rm -f ' + str(vcf_validation_output_file))
 
-   if validation_error_fname is None:
+   if validation_log_fname is None:
       err_msg = 'Cannot find file with error messages from vcf_validator'
       return error_message(err_msg, logger)
 
-   if os.path.exists(validation_error_fname):
-      f = open(validation_error_fname, 'r')
+   if os.path.exists(validation_log_fname):
+      f = open(validation_log_fname, 'r')
       for line in f:
          if not re.search(r' \(warning\)$|^Reading from ',line.rstrip()): ## ignore warnings
             if line.startswith('Line '):
@@ -158,9 +166,9 @@ def is_valid_vcf(input_vcf, output_dir, logger, debug):
                validation_results['validation_status'] = 0
       f.close()
       if not debug:
-         check_subprocess('rm -f ' + str(validation_error_fname))
+         check_subprocess('rm -f ' + str(validation_log_fname))
    else:
-      err_msg = str(validation_error_fname) + ' does not exist'
+      err_msg = str(validation_log_fname) + ' does not exist'
       return error_message(err_msg, logger)
 
    if validation_results['validation_status'] == 0:
@@ -175,6 +183,10 @@ def is_valid_vcf(input_vcf, output_dir, logger, debug):
 
 
 def get_correct_cpg_transcript(vep_csq_records):
+   """
+   Function that considers an array of VEP CSQ records and picks most relevant consequence (and gene) from
+   neighbouring genes/transcripts of relevance for cancer predisposition (cpg = cancer predisposition gene)
+   """
 
   
    csq_idx = 0
@@ -198,6 +210,7 @@ def get_correct_cpg_transcript(vep_csq_records):
             if vep_csq_records[j]['SYMBOL'] in csq_idx_dict.keys():
                csq_idx_dict[str(vep_csq_records[j]['SYMBOL'])]['idx'] = j
                if vep_csq_records[j]['CODING_STATUS'] == 'coding':
+                  csq_idx = j  # prefer coding on over anything else
                   csq_idx_dict[str(vep_csq_records[j]['SYMBOL'])]['coding'] = True
       j = j + 1
    
@@ -216,6 +229,8 @@ def get_correct_cpg_transcript(vep_csq_records):
       if csq_idx_dict['NTHL1']['coding'] is True:
          csq_idx = csq_idx_dict['NTHL1']['idx']
 
+   if csq_idx is None:
+      csq_idx = 0
    return csq_idx
 
 
@@ -244,11 +259,7 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
       err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
       error_message(err_msg, logger)
    
-   # valid_tumor_types = ['Any','Adrenal Gland', 'Ampulla of Vater', 'Biliary Tract', 'Bladder/Urinary Tract','Bone','Breast','Cervix'
-   #                      'CNS/Brain','Colon/Rectum','Esophagus/Stomach','Eye','Head and Neck','Kidney','Liver','Lung','Lymphoid',
-   #                      'Myeloid','Other/Unknown','Ovary/Fallopian Tube','Pancreas','Peripheral Nervous System','Peritoneum',
-   #                      'Pleura','Prostate','Skin','Soft Tissue','Testis','Thymus','Thyroid','Uterus','Vulva/Vagina']
-
+   
    for section in config_options:
       if section in user_options:
          for var in config_options[section]:
@@ -270,16 +281,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
             populations_tgp = ['afr','amr','eas','sas','eur','global']
             populations_gnomad = ['afr','amr','eas','sas','nfe','oth','fin','asj','global']
             theme_options = ['default', 'cerulean', 'journal', 'flatly', 'readable', 'spacelab', 'united', 'cosmo', 'lumen', 'paper', 'sandstone', 'simplex','yeti']
-            if var == 'mutsignatures_normalization' and not str(user_options[section][var]) in normalization_options:
-               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting \'default\', \'exome\', \'genome\', or \'exome2genome\')'
-               error_message(err_msg, logger)
-            if var == 'mutsignatures_cutoff' and (float(user_options[section][var]) > 1 or float(user_options[section][var]) < 0) :
-               err_msg = 'Configuration value ' + str(user_options[section][var]) + " must be within the [0,1] range"
-               error_message(err_msg, logger)
-            if var == 'mutsignatures_signature_limit':
-               if int(user_options[section][var]) < 1 or int(user_options[section][var]) > 30:
-                  err_msg = "Number of mutational signatures in search space ('mutsignatures_signature_limit') must be positive and not more than 30 (retrieved value: " + str(user_options[section][var]) + ")"
-                  error_message(err_msg,logger)
             if var == 'pop_gnomad' and not str(user_options[section][var]) in populations_gnomad:
                err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
                   ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
@@ -296,26 +297,6 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if user_options[section][var] < 0 or user_options[section][var] > 1:
                   err_msg = "MAF value: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
                   error_message(err_msg,logger)
-            if var == 'min_af_tumor':
-               if user_options[section][var] < 0 or user_options[section][var] > 1:
-                  err_msg = "Minimum AF tumor: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
-                  error_message(err_msg,logger)
-            if var == 'max_af_normal':
-               if user_options[section][var] < 0 or user_options[section][var] > 1:
-                  err_msg = "Maximum AF normal: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
-                  error_message(err_msg,logger)
-            if var == 'cna_overlap_pct':
-               if user_options['cna'][var] > 100 or user_options['cna'][var] <= 0:
-                  err_msg = "Minimum percent overlap between copy number segment and gene transcript (" + str(user_options[section][var]) + ") should be greater than zero and less than 100"
-                  error_message(err_msg,logger)
-            if var == 'logR_homdel':
-               if user_options['cna'][var] > 0:
-                  err_msg = "Log ratio for homozygous deletions (" + str(user_options[section][var]) + ") should be less than zero"
-                  error_message(err_msg,logger)
-            if var == 'logR_gain':
-               if user_options['cna'][var] < 0:
-                  err_msg = "Log ratio for copy number amplifications (" + str(user_options[section][var]) + ") should be greater than zero"
-                  error_message(err_msg,logger)
             if var == 'vep_pick_order':
                values = str(user_options['other'][var]).split(',')
                permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane']
@@ -327,14 +308,8 @@ def read_config_options(configuration_file, base_dir, genome_assembly, logger, w
                if num_permitted_sources != 8:
                   err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length,mane"
                   error_message(err_msg, logger)
-            config_options[section][var] = user_options[section][var]
 
-   
-   if wflow == 'pcgr':
-      if 'msi' in config_options.keys() and 'mutational_burden' in config_options.keys():
-         if config_options['msi']['msi'] == 1 and config_options['mutational_burden']['mutational_burden'] == 0:
-            err_msg = "Prediction of MSI status (msi = true) requires mutational burden/target_size input (mutational_burden = true) - this is currently set as false"
-            error_message(err_msg,logger)
+            config_options[section][var] = user_options[section][var]
 
    return config_options
 
@@ -450,13 +425,15 @@ def assign_cds_exon_intron_annotations(csq_record):
          if is_integer(pos):
             csq_record['INTRON_POSITION'] = int(pos)
    
-   if re.match(r"synonymous_|missense_|stop_|inframe_|start_", str(csq_record['Consequence'])) and str(csq_record['NearestExonJB']) != "":
-      exon_pos_info = csq_record['NearestExonJB'].split("+")
-      if len(exon_pos_info) == 4:
-         if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "end":
-            csq_record['EXON_POSITION'] = -int(exon_pos_info[1])
-         if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "start":
-            csq_record['EXON_POSITION'] = int(exon_pos_info[1])
+   if 'NearestExonJB' in csq_record.keys():
+      if not csq_record['NearestExonJB'] is None:
+         if re.match(r"synonymous_|missense_|stop_|inframe_|start_", str(csq_record['Consequence'])) and str(csq_record['NearestExonJB']) != "":
+            exon_pos_info = csq_record['NearestExonJB'].split("+")
+            if len(exon_pos_info) == 4:
+               if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "end":
+                  csq_record['EXON_POSITION'] = -int(exon_pos_info[1])
+               if is_integer(exon_pos_info[1]) and str(exon_pos_info[2]) == "start":
+                  csq_record['EXON_POSITION'] = int(exon_pos_info[1])
 
 
    for m in ['HGVSp_short','CDS_CHANGE']:

@@ -235,26 +235,9 @@ WORKDIR /
 RUN sudo -H pip install --upgrade pip
 RUN sudo -H pip install -U setuptools
 RUN sudo -H pip install $PYTHON_MODULES
-#
-# RUN wget https://github.com/stevengj/nlopt/archive/v2.6.1.tar.gz \
-#     && gzip -dc v2.6.1.tar.gz | tar xvf - \
-#     && cd nlopt-2.6.1 \
-#     && mkdir build \
-#     && cd build \
-#     && cmake .. \
-#     && make \
-#     && make install
-
-# RUN wget https://github.com/stevengj/nlopt/releases/download/nlopt-2.4.2/nlopt-2.4.2.tar.gz \
-# 		&& gzip -dc nlopt-2.4.2.tar.gz | tar xvf - \
-# 		&& cd nlopt-2.4.2 \
-#     && ./configure \
-# 		&& make -j \
-# 		&& make install
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libpq-dev libxt-dev libudunits2-dev
-
 
 
 USER root

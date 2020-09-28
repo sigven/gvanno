@@ -12,83 +12,94 @@ import platform
 import toml
 from argparse import RawTextHelpFormatter
 
-gvanno_version = '1.3.2'
-db_version = 'GVANNO_DB_VERSION = 20200629'
-vep_version = '100'
-global vep_assembly
+GVANNO_VERSION = '1.3.3'
+DB_VERSION = 'GVANNO_DB_VERSION = 20200928'
+VEP_VERSION = '101'
+GENCODE_VERSION = '35'
+VEP_ASSEMBLY = "GRCh38"
+DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
+
 
 def __main__():
    
-   parser = argparse.ArgumentParser(description='Germline variant annotation (gvanno) workflow for clinical and functional interpretation of germline nucleotide variants',formatter_class=RawTextHelpFormatter, usage="%(prog)s [options] <QUERY_VCF> <GVANNO_DIR> <OUTPUT_DIR> <GENOME_ASSEMBLY> <CONFIG_FILE> <SAMPLE_ID>")
-   parser.add_argument('--force_overwrite', action = "store_true", help='The script will fail with an error if the output file already exists. Force the overwrite of existing result files by using this flag')
-   parser.add_argument('--version', action='version', version='%(prog)s ' + str(gvanno_version))
-   parser.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator")
-   parser.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
-   parser.add_argument('query_vcf', help='VCF input file with germline query variants (SNVs/InDels)')
-   parser.add_argument('gvanno_dir',help='gvanno base directory with accompanying data directory, e.g. ~/gvanno-1.3.0')
-   parser.add_argument('output_dir',help='Output directory')
-   parser.add_argument('genome_assembly',choices = ['grch37','grch38'], help='grch37 or grch38')
-   parser.add_argument('configuration_file',help='gvanno configuration file (TOML format)')
-   parser.add_argument('sample_id',help="Sample identifier - prefix for output files")
+   program_description = "gvanno - Germline variant annotation (gvanno) workflow for functional and clinical interpretation of germline nucleotide variants"
+   program_options = " --query_vcf <QUERY_VCF> --pcgr_dir <PCGR_DIR> --output_dir <OUTPUT_DIR> --genome_assembly " + \
+      " <GENOME_ASSEMBLY> --conf <CONFIG_FILE> --sample_id <SAMPLE_ID>"
+
+   parser = argparse.ArgumentParser(description = program_description,
+                                    formatter_class=RawTextHelpFormatter, usage="%(prog)s -h [options] " + str(program_options))
+   parser._action_groups.pop()
+   required = parser.add_argument_group('Required arguments')
+   optional = parser.add_argument_group('Optional arguments')
+
+   optional.add_argument('--force_overwrite', action = "store_true", help='By default, the script will fail with an error if any output file already exists.\n You can force the overwrite of existing result files by using this flag, default: %(default)s')
+   optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
+   optional.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator, default: %(default)s")
+   optional.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
+   required.add_argument('--query_vcf', help='VCF input file with germline query variants (SNVs/InDels).', required = True)
+   required.add_argument('--gvanno_dir',help='Directory that contains the gvanno data bundle, e.g. ~/gvanno-1.3.3', required = True)
+   required.add_argument('--output_dir',help='Output directory', required = True)
+   required.add_argument('--genome_assembly',choices = ['grch37','grch38'], help='Genome assembly build: grch37 or grch38', required = True)
+   required.add_argument('--conf', dest='configuration_file', help='Configuration file in TOML format', required = True)
+   required.add_argument('--sample_id',help="Sample identifier - prefix for output files", required = True)
    
-   docker_image_version = 'sigven/gvanno:' + str(gvanno_version)
    args = parser.parse_args()
+   arg_dict = vars(args)
    
    overwrite = 0
-   if args.force_overwrite is True:
+   if arg_dict['force_overwrite'] is True:
       overwrite = 1
    
    logger = getlogger('gvanno-check-workflow')
 
-   if args.container is None:
+   if arg_dict['container'] is None:
       err_msg = 'Please specify whether the gvanno workflow is running through Docker or Singularity (--container <docker|singularity>)'
       gvanno_error_message(err_msg, logger)
 
    logger = getlogger('gvanno-check-files')
 
    # check that script and Docker image version correspond
-   if args.container == 'docker':
-      check_docker_command = 'docker images -q ' + str(docker_image_version)
+   if arg_dict['container'] == 'docker':
+      check_docker_command = 'docker images -q ' + str(DOCKER_IMAGE_VERSION)
       output = subprocess.check_output(str(check_docker_command), stderr=subprocess.STDOUT, shell=True)
       
       if(len(output) == 0):
-         err_msg = 'Docker image ' + str(docker_image_version) + ' does not exist, pull image from Dockerhub (docker pull ' + str(docker_image_version) + ')'
+         err_msg = 'Docker image ' + str(DOCKER_IMAGE_VERSION) + ' does not exist, pull image from Dockerhub (docker pull ' + str(DOCKER_IMAGE_VERSION) + ')'
          gvanno_error_message(err_msg,logger)
    
+   ## Read default configuration and user-specified in TOML file
    config_options = {}
-   if os.path.exists(args.configuration_file):
-      config_options = read_config_options(args.configuration_file, args.gvanno_dir, args.genome_assembly, logger)
+   if os.path.exists(arg_dict['configuration_file']):
+      config_options = read_config_options(arg_dict, logger)
    else:
-      err_msg = "gvanno configuration file " + str(args.configuration_file) + " does not exist - exiting"
+      err_msg = "gvanno configuration file " + str(arg_dict['configuration_file']) + " does not exist - exiting"
       gvanno_error_message(err_msg,logger)
-   host_directories = verify_input_files(args.query_vcf, args.configuration_file, config_options, args.gvanno_dir, args.output_dir, args.sample_id, args.genome_assembly, overwrite, logger)
+   host_directories = verify_input_files(arg_dict, logger)
 
-   run_gvanno(host_directories, docker_image_version, config_options, args.sample_id, args.no_vcf_validate, args.genome_assembly, gvanno_version, args.container)
+   run_gvanno(arg_dict, host_directories, config_options)
 
 
-def read_config_options(configuration_file, gvanno_dir, genome_assembly, logger):
+def read_config_options(arg_dict, logger):
    
    ## read default options
    gvanno_config_options = {}
-   gvanno_configuration_file_default = os.path.join(gvanno_dir,'data',str(genome_assembly),'gvanno_configuration_default.toml')
+   gvanno_configuration_file_default = os.path.join(arg_dict['gvanno_dir'],'data',str(arg_dict['genome_assembly']),'gvanno_configuration_default.toml')
    if not os.path.exists(gvanno_configuration_file_default):
       err_msg = "Default gvanno configuration file " + str(gvanno_configuration_file_default) + " does not exist - exiting"
       gvanno_error_message(err_msg,logger)
    try:
       gvanno_config_options = toml.load(gvanno_configuration_file_default)
    except(IndexError,TypeError):
-      err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
+      err_msg = 'Configuration file ' + str(gvanno_configuration_file_default) + ' is not formatted correctly'
       gvanno_error_message(err_msg, logger)
 
    ## override with options set by the users
    try:
-      user_options = toml.load(configuration_file)
+      user_options = toml.load(arg_dict['configuration_file'])
    except(IndexError,TypeError):
-      err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
+      err_msg = 'Configuration file ' + str(arg_dict['configuration_file']) + ' is not formatted correctly'
       gvanno_error_message(err_msg, logger)
    
-   
-
    for section in gvanno_config_options:
       if section in user_options:
          for var in gvanno_config_options[section]:
@@ -133,7 +144,7 @@ def gvanno_error_message(message, logger):
    logger.error('')
    exit(0)
 
-def verify_input_files(input_vcf, configuration_file, gvanno_config_options, base_gvanno_dir, output_dir, sample_id, genome_assembly, overwrite, logger):
+def verify_input_files(arg_dict, logger):
    """
    Function that checks the input files and directories provided by the user and checks for their existence
    """
@@ -146,78 +157,76 @@ def verify_input_files(input_vcf, configuration_file, gvanno_config_options, bas
    input_vcf_basename = "NA"
    input_conf_basename = "NA"
    
-   
-   ## check that either input vcf or cna segments exist
-   if input_vcf is None:
-      err_msg = "Please specifiy a VCF input file (--input_vcf)"
+   ## check that query_vcf exist
+   if arg_dict['query_vcf'] is None:
+      err_msg = "Please specifiy a VCF input file (--query_vcf)"
       gvanno_error_message(err_msg,logger)
    
-   
    ## check the existence of given output folder
-   output_dir_full = os.path.abspath(output_dir)
+   output_dir_full = os.path.abspath(arg_dict['output_dir'])
    if not os.path.isdir(output_dir_full):
       err_msg = "Output directory (" + str(output_dir_full) + ") does not exist"
       gvanno_error_message(err_msg,logger)
    
    ## check if input vcf exist
-   if not input_vcf is None:
-      if not os.path.exists(os.path.abspath(input_vcf)):
-         err_msg = "Input file (" + str(input_vcf) + ") does not exist"
+   if not arg_dict['query_vcf'] is None:
+      if not os.path.exists(os.path.abspath(arg_dict['query_vcf'])):
+         err_msg = "Input file (" + str(arg_dict['query_vcf']) + ") does not exist"
          gvanno_error_message(err_msg,logger)
 
-      if not (os.path.abspath(input_vcf).endswith('.vcf') or os.path.abspath(input_vcf).endswith('.vcf.gz')):
-         err_msg = "VCF input file (" + os.path.abspath(input_vcf) + ") does not have the correct file extension (.vcf or .vcf.gz)"
+      if not (os.path.abspath(arg_dict['query_vcf']).endswith('.vcf') or os.path.abspath(arg_dict['query_vcf']).endswith('.vcf.gz')):
+         err_msg = "VCF input file (" + os.path.abspath(arg_dict['query_vcf']) + ") does not have the correct file extension (.vcf or .vcf.gz)"
          gvanno_error_message(err_msg,logger)
 
       ## check that tabix file exist if bgzipped files is given
-      if os.path.abspath(input_vcf).endswith('.vcf.gz'):
-         tabix_file = input_vcf + '.tbi'
+      if os.path.abspath(arg_dict['query_vcf']).endswith('.vcf.gz'):
+         tabix_file = arg_dict['query_vcf'] + '.tbi'
          if not os.path.exists(os.path.abspath(tabix_file)):
-            err_msg = "Tabix file (i.e. '.gz.tbi') is not present for the bgzipped VCF input file (" + os.path.abspath(input_vcf) + "). Please make sure your input VCF is properly compressed and indexed (bgzip + tabix)"
+            err_msg = "Tabix file (i.e. '.gz.tbi') is not present for the bgzipped VCF input file (" + os.path.abspath(arg_dict['query_vcf']) + "). Please make sure your input VCF is properly compressed and indexed (bgzip + tabix)"
             gvanno_error_message(err_msg,logger)
 
-      input_vcf_basename = os.path.basename(str(input_vcf))
-      input_vcf_dir = os.path.dirname(os.path.abspath(input_vcf))
+      input_vcf_basename = os.path.basename(str(arg_dict['query_vcf']))
+      input_vcf_dir = os.path.dirname(os.path.abspath(arg_dict['query_vcf']))
 
       ## if output vcf exist and overwrite not set
-      output_vcf = os.path.join(str(output_dir_full),str(sample_id)) + '_gvanno_' + str(genome_assembly) + '.vcf.gz'
-      if os.path.exists(output_vcf) and overwrite == 0:
+      output_vcf = os.path.join(str(output_dir_full),str(arg_dict['sample_id'])) + '_gvanno_' + str(arg_dict['genome_assembly']) + '.vcf.gz'
+      if os.path.exists(output_vcf) and arg_dict['force_overwrite'] is False:
          err_msg = "Output files (e.g. " + str(output_vcf) + ") already exist - please specify different sample_id or add option --force_overwrite"
          gvanno_error_message(err_msg,logger)
    
-   if not configuration_file is None:
-      if not os.path.exists(os.path.abspath(configuration_file)):
-         err_msg = "Input file (" + str(configuration_file) + ") does not exist"
+   ## Check configuration file
+   if not arg_dict['configuration_file'] is None:
+      if not os.path.exists(os.path.abspath(arg_dict['configuration_file'])):
+         err_msg = "Input file (" + str(arg_dict['configuration_file']) + ") does not exist"
          gvanno_error_message(err_msg,logger)
 
-      if not os.path.abspath(configuration_file).endswith('.toml'):
-         err_msg = "Configuration file (" + os.path.abspath(configuration_file) + ") does not have the correct file extension (.toml)"
+      if not os.path.abspath(arg_dict['configuration_file']).endswith('.toml'):
+         err_msg = "Configuration file (" + os.path.abspath(arg_dict['configuration_file']) + ") does not have the correct file extension (.toml)"
          gvanno_error_message(err_msg,logger)
 
-      input_conf_basename = os.path.basename(str(configuration_file))
-      input_conf_dir = os.path.dirname(os.path.abspath(configuration_file))
-   
+      input_conf_basename = os.path.basename(str(arg_dict['configuration_file']))
+      input_conf_dir = os.path.dirname(os.path.abspath(arg_dict['configuration_file']))
    
    ## check the existence of base folder
-   base_dir = os.path.abspath(base_gvanno_dir)
+   base_dir = os.path.abspath(arg_dict['gvanno_dir'])
    if not os.path.isdir(base_dir):
       err_msg = "Base directory (" + str(base_dir) + ") does not exist"
       gvanno_error_message(err_msg,logger)
    
    ## check the existence of data folder within the base folder
-   db_dir = os.path.join(os.path.abspath(base_gvanno_dir),'data')
+   db_dir = os.path.join(os.path.abspath(arg_dict['gvanno_dir']),'data')
    if not os.path.isdir(db_dir):
       err_msg = "Data directory (" + str(db_dir) + ") does not exist"
       gvanno_error_message(err_msg,logger)
    
    ## check the existence of specified assembly data folder within the base folder
-   db_assembly_dir = os.path.join(os.path.abspath(base_gvanno_dir),'data',genome_assembly)
+   db_assembly_dir = os.path.join(os.path.abspath(arg_dict['gvanno_dir']),'data',arg_dict['genome_assembly'])
    if not os.path.isdir(db_assembly_dir):
       err_msg = "Data directory for the specified genome assembly (" + str(db_assembly_dir) + ") does not exist"
       gvanno_error_message(err_msg,logger)
    
    ## check the existence of RELEASE_NOTES (starting from 0.2.0)
-   rel_notes_file = os.path.join(os.path.abspath(base_gvanno_dir),'data',genome_assembly,'RELEASE_NOTES')
+   rel_notes_file = os.path.join(os.path.abspath(arg_dict['gvanno_dir']),'data',arg_dict['genome_assembly'],'RELEASE_NOTES')
    if not os.path.exists(rel_notes_file):
       err_msg = 'The gvanno data bundle is outdated - please download the latest data bundle (see github.com/sigven/gvanno for instructions)'
       gvanno_error_message(err_msg,logger)
@@ -225,7 +234,7 @@ def verify_input_files(input_vcf, configuration_file, gvanno_config_options, bas
    f_rel_not = open(rel_notes_file,'r')
    compliant_data_bundle = 0
    for line in f_rel_not:
-      if db_version in line:
+      if DB_VERSION in line:
          compliant_data_bundle = 1
    
    f_rel_not.close()
@@ -275,7 +284,7 @@ def getlogger(logger_name):
    
    return logger
 
-def run_gvanno(host_directories, docker_image_version, config_options, sample_id, no_vcf_validate, genome_assembly, gvanno_version, container):
+def run_gvanno(arg_dict, host_directories, config_options):
    """
    Main function to run the gvanno workflow using Docker
    """
@@ -283,11 +292,12 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    output_vcf = 'None'
    output_pass_vcf = 'None'
    uid = ''
-   vep_assembly = 'GRCh38'
-   gencode_version = 'release 34'
-   if genome_assembly == 'grch37':
-      gencode_version = 'release 19'
-      vep_assembly = 'GRCh37'
+
+   global GENCODE_VERSION, VEP_ASSEMBLY
+   if arg_dict['genome_assembly'] == 'grch37':
+      GENCODE_VERSION = 'release 19'
+      VEP_ASSEMBLY = 'GRCh37'
+
    logger = getlogger('gvanno-get-OS')
    if platform.system() == 'Linux' or platform.system() == 'Darwin' or sys.platform == 'darwin' or sys.platform == 'linux2' or sys.platform == 'linux':
       uid = os.getuid()
@@ -301,7 +311,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       
    vepdb_dir_host = os.path.join(str(host_directories['db_dir_host']),'.vep')
    vcf_validation = 1
-   if no_vcf_validate:
+   if arg_dict['no_vcf_validate']:
       vcf_validation = 0
    data_dir = '/data'
    output_dir = '/workdir/output'
@@ -321,40 +331,42 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    input_conf_volume_mapping = str(host_directories['input_conf_dir_host']) + ":/workdir/input_conf"
    output_volume_mapping = str(host_directories['output_dir_host']) + ":/workdir/output"
 
-   if container == 'docker':
+   if arg_dict['container'] == 'docker':
       container_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(vep_volume_mapping) + " -v=" + str(input_conf_volume_mapping) + " -v=" + str(output_volume_mapping)
-   elif container == 'singularity':
+   elif arg_dict['container'] == 'singularity':
       container_command_run1 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(vep_volume_mapping) + " -B " + str(input_conf_volume_mapping) + " -B " + str(output_volume_mapping)
 
-   if host_directories['input_vcf_dir_host'] != 'NA' and container == 'docker':
+   if host_directories['input_vcf_dir_host'] != 'NA' and arg_dict['container'] == 'docker':
       container_command_run1 = container_command_run1  + " -v=" + str(input_vcf_volume_mapping)
-   elif host_directories['input_vcf_dir_host'] != 'NA' and container == 'singularity':
+   elif host_directories['input_vcf_dir_host'] != 'NA' and arg_dict['container'] == 'singularity':
       container_command_run1 = container_command_run1  + " -B " + str(input_vcf_volume_mapping)
 
-   if container == 'docker':
-      container_command_run1 = container_command_run1 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
-   elif container == 'singularity':
+   if arg_dict['container'] == 'docker':
+      container_command_run1 = container_command_run1 + " -w=/workdir/output " + str(DOCKER_IMAGE_VERSION) + " sh -c \""
+   elif arg_dict['container'] == 'singularity':
       container_command_run1 = container_command_run1 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
 
-   if container == 'docker':
+   if arg_dict['container'] == 'docker':
       container_command_run2 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(output_volume_mapping)
-      container_command_run2 = container_command_run2 + " -w=/workdir/output " + str(docker_image_version) + " sh -c \""
+      container_command_run2 = container_command_run2 + " -w=/workdir/output " + str(DOCKER_IMAGE_VERSION) + " sh -c \""
       docker_command_run_end = '\"'
-   elif container == 'singularity':
+   elif arg_dict['container'] == 'singularity':
       container_command_run2 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(output_volume_mapping)
       container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
       docker_command_run_end = '\"'
 
+   ## GVANNO|start - Log key information about sample, options and sequencing assay/design
    logger = getlogger("gvanno-start")
    logger.info("--- germline variant annotation (gvanno) workflow ----")
-   logger.info("Sample name: " + str(sample_id))
-   logger.info("Genome assembly: " + str(genome_assembly))
+   logger.info("Sample name: " + str(arg_dict['sample_id']))
+   logger.info("Genome assembly: " + str(arg_dict['genome_assembly']))
    print()
 
-   ## verify VCF and CNA segment file
+   ## GVANNO|validate - verify input file (contents/format)
    logger = getlogger('gvanno-validate-input')
    logger.info("STEP 0: Validate input data")
-   vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + str(input_conf_docker) + " " + str(vcf_validation) + " "  + str(genome_assembly) + docker_command_run_end
+   vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + \
+       str(input_conf_docker) + " " + str(vcf_validation) + " "  + str(arg_dict['genome_assembly']) + docker_command_run_end
 
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
@@ -362,37 +374,45 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
    if not input_vcf_docker == 'None':
       
       ## Define input, output and temporary file names
-      output_vcf = os.path.join(output_dir, str(sample_id) + '_gvanno_' + str(genome_assembly) + '.vcf.gz')
-      output_tsv = os.path.join(output_dir, str(sample_id) + '_gvanno_'  + str(genome_assembly) + '.tsv')
-      output_pass_vcf = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.vcf.gz')
-      output_pass_tsv = os.path.join(output_dir, str(sample_id) + '_gvanno_pass_' + str(genome_assembly) + '.tsv')
+      output_vcf = os.path.join(output_dir, str(arg_dict['sample_id']) + '_gvanno_' + str(arg_dict['genome_assembly']) + '.vcf.gz')
+      output_tsv = os.path.join(output_dir, str(arg_dict['sample_id']) + '_gvanno_'  + str(arg_dict['genome_assembly']) + '.tsv')
+      output_pass_vcf = os.path.join(output_dir, str(arg_dict['sample_id']) + '_gvanno_pass_' + str(arg_dict['genome_assembly']) + '.vcf.gz')
+      output_pass_tsv = os.path.join(output_dir, str(arg_dict['sample_id']) + '_gvanno_pass_' + str(arg_dict['genome_assembly']) + '.tsv')
       input_vcf_gvanno_ready = os.path.join(output_dir, re.sub(r'(\.vcf$|\.vcf\.gz$)','.gvanno_ready.vcf.gz',host_directories['input_vcf_basename_host']))
       vep_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.vep.vcf',input_vcf_gvanno_ready)
       vep_vcfanno_vcf = re.sub(r'(\.vcf$|\.vcf\.gz$)','.vep.vcfanno.vcf',input_vcf_gvanno_ready)
       vep_vcfanno_annotated_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated',vep_vcfanno_vcf) + '.gz'
       vep_vcfanno_annotated_pass_vcf = re.sub(r'\.vcfanno','.vcfanno.annotated.pass',vep_vcfanno_vcf) + '.gz'
       
-      fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "Homo_sapiens." + str(vep_assembly) + ".dna.primary_assembly.fa.gz")
-      ancestor_assembly = os.path.join(vep_dir, "homo_sapiens", str(vep_version) + "_" + str(vep_assembly), "human_ancestor.fa.gz")
+      ## Path for human genome assembly and human ancestor (FASTA)
+      fasta_assembly = os.path.join(vep_dir, "homo_sapiens", str(VEP_VERSION) + "_" + str(VEP_ASSEMBLY), "Homo_sapiens." + str(VEP_ASSEMBLY) + ".dna.primary_assembly.fa.gz")
+      ancestor_assembly = os.path.join(vep_dir, "homo_sapiens", str(VEP_VERSION) + "_" + str(VEP_ASSEMBLY), "human_ancestor.fa.gz")
+
+      ## List all VEP flags used when calling VEP
       loftee_dir = '/opt/vep/src/ensembl-vep/modules'
       plugins_in_use = "NearestExonJB"
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
-         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape --xref_refseq --plugin NearestExonJB,max_range=50000"
+         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape " + \
+         "--xref_refseq --plugin NearestExonJB,max_range=50000"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(config_options['other']['vep_pick_order']) + \
-         " --force_overwrite --species homo_sapiens --assembly " + str(vep_assembly) + " --offline --fork " + \
+         " --force_overwrite --species homo_sapiens --assembly " + str(VEP_ASSEMBLY) + " --offline --fork " + \
          str(config_options['other']['n_vep_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if config_options['other']['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if config_options['other']['lof_prediction'] == 1:
          plugins_in_use = plugins_in_use + ", LoF"
          vep_options += " --plugin LoF,loftee_path:" + loftee_dir + ",human_ancestor_fa:" + str(ancestor_assembly)  + ",use_gerp_end_trunc:0 --dir_plugins " + loftee_dir
-      vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
+
+      ## Compose full VEP command
+      vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + \
+         " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
       vep_bgzip_command = container_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
       vep_tabix_command = str(container_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
-      logger = getlogger('gvanno-vep')
-   
+
+      ## GVANNO|VEP - run consequence annotation with Variant Effect Predictor
+      logger = getlogger('gvanno-vep')   
       print()
-      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(vep_version) + ", GENCODE " + str(gencode_version) + ", " + str(genome_assembly) + ")")
+      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(VEP_VERSION) + ", GENCODE " + str(GENCODE_VERSION) + ", " + str(arg_dict['genome_assembly']) + ")")
       logger.info("VEP configuration - one primary consequence block pr. alternative allele (--flack_pick_allele)")
       logger.info("VEP configuration - transcript pick order: " + str(config_options['other']['vep_pick_order']))
       logger.info("VEP configuration - transcript pick order: See more at https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick_options")
@@ -402,30 +422,34 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       check_subprocess(vep_bgzip_command)
       check_subprocess(vep_tabix_command)
       logger.info("Finished")
-      #return
 
-      ## vcfanno command
+      ## GVANNO|vcfanno - annotate VCF against a number of variant annotation resources
       print()
       logger = getlogger('gvanno-vcfanno')
       logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
-      gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + " " + os.path.join(data_dir, "data", str(genome_assembly)) + docker_command_run_end
+      gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(config_options['other']['n_vcfanno_proc']) + \
+         " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
+         " " + os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
       #return
 
-      ## summarise command
+      ## GVANNO|summarise - expand annotations in VCF file
       print()
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Gene annotations with gvanno-summarise")
-      gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + os.path.join(data_dir, "data", str(genome_assembly)) + " " + str(config_options['other']['lof_prediction']) + docker_command_run_end
+      gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + \
+         os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(config_options['other']['lof_prediction']) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       
+      ## GVANNO|clean - move output files and clean up temporary files
       create_output_vcf_command1 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(output_vcf) + "\""
       create_output_vcf_command2 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_vcf) + '.tbi ' + str(output_vcf) + '.tbi' + "\""
       create_output_vcf_command3 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + ' ' + str(output_pass_vcf) + "\""
       create_output_vcf_command4 = str(container_command_run2) + 'mv ' + str(vep_vcfanno_annotated_pass_vcf) + '.tbi ' + str(output_pass_vcf) + '.tbi' + "\""
-      clean_command = str(container_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + docker_command_run_end
+      clean_command = str(container_command_run2) + 'rm -f ' + str(vep_vcf) + '* ' + str(vep_vcfanno_annotated_vcf) + ' ' + \
+          str(vep_vcfanno_annotated_pass_vcf) + '* ' + str(vep_vcfanno_vcf) + '* ' +  str(input_vcf_gvanno_ready) + "* "  + docker_command_run_end
       check_subprocess(create_output_vcf_command1)
       check_subprocess(create_output_vcf_command2)
       check_subprocess(create_output_vcf_command3)
@@ -433,6 +457,7 @@ def run_gvanno(host_directories, docker_image_version, config_options, sample_id
       check_subprocess(clean_command)
       
       print()
+      ## GVANNO|vcf2tsv - convert VCF to TSV with https://github.com/sigven/vcf2tsv
       logger = getlogger("gvanno-vcf2tsv")
       logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsv")
       gvanno_vcf2tsv_command_pass = str(container_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
