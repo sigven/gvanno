@@ -114,11 +114,11 @@ def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, vcf_v
          valid_vcf = annoutils.is_valid_vcf(input_vcf, output_dir, logger, False)
          if valid_vcf == -1:
             return -1
-         else:
-            logger.info('Skipping validation of VCF file - as provided by option --no_vcf_validate')
-         tag_check = check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, logger)
-         if tag_check == -1:
-            return -1
+      else:
+         logger.info('Skipping validation of VCF file - as provided by option --no_vcf_validate')
+      tag_check = check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, logger)
+      if tag_check == -1:
+         return -1
       
       vcf = VCF(input_vcf)
       simplify_vcf(input_vcf, vcf, output_dir, logger)
