@@ -201,7 +201,7 @@ WORKDIR /
 
 ENV PACKAGE_BIO="libhts2 bedtools"
 ENV PACKAGE_DEV="gfortran gcc-multilib autoconf liblzma-dev libncurses5-dev libblas-dev liblapack-dev libssh2-1-dev libxml2-dev vim libssl-dev libcairo2-dev libbz2-dev libcurl4-openssl-dev"
-ENV PYTHON_MODULES="numpy cython scipy pandas cyvcf2 toml"
+ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9 toml==0.10.1"
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		nano ed locales vim-tiny fonts-texgyre \
@@ -243,12 +243,16 @@ RUN apt-get update \
 USER root
 WORKDIR /
 
-RUN git clone https://github.com/atks/vt.git
-WORKDIR vt
-RUN make
-RUN make test
-RUN cp vt /usr/local/bin
-RUN export PATH=/usr/local/bin:$PATH
+## vt - variant tool set - use conda version
+## primary use in PCGR/CPSR: decomposition of multiallelic variants in a VCF file
+RUN wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh \
+    && chmod 0755 miniconda.sh
+RUN ["/bin/bash", "-c", "/miniconda.sh -b -p /conda"]
+RUN rm miniconda.sh
+
+# update conda & install vt
+RUN /conda/bin/conda update conda
+RUN /conda/bin/conda install -c bioconda vt
 
 ## Clean Up
 RUN apt-get clean autoclean
@@ -268,9 +272,9 @@ WORKDIR /
 RUN rm -rf $HOME/src/ensembl-vep/t/
 RUN rm -f $HOME/src/v335_base.tar.gz
 RUN rm -f $HOME/src/release-1-6-924.zip
-RUN rm -rf /vt
-RUN rm -rf /samtools-1.9.tar.bz2
+RUN rm -rf /samtools-1.10.tar.bz2
+RUN rm -f /conda/bin/python
 
 ADD gvanno.tgz /
-ENV PATH=$PATH:/gvanno
+ENV PATH=$PATH:/conda/bin:/gvanno
 ENV PYTHONPATH=:/gvanno/lib:${PYTHONPATH}

@@ -50,17 +50,36 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 'ENSEMBL_GENE_ID':1, 'ENSEMBL_PROTEIN_ID':2, 
-                     'SYMBOL':3, 'SYMBOL_ENTREZ':4,'ENTREZ_ID':5, 'UNIPROT_ID':6, 'APPRIS':7,
-                     'UNIPROT_ACC':8,'REFSEQ_MRNA':9, 'CORUM_ID':10,'TUMOR_SUPPRESSOR':11,
-                     'TUMOR_SUPPRESSOR_EVIDENCE':12, 'ONCOGENE':13, 'ONCOGENE_EVIDENCE':14,'DISGENET_CUI':15,
-                     'MIM_PHENOTYPE_ID':16, 'OPENTARGETS_DISEASE_ASSOCS':17,
-                     'OPENTARGETS_TRACTABILITY_COMPOUND':18, 'OPENTARGETS_TRACTABILITY_ANTIBODY':19,
-                     'PROB_HAPLOINSUFFICIENCY': 20,'PROB_EXAC_LOF_INTOLERANT':21,'PROB_EXAC_LOF_INTOLERANT_HOM':22,
-                     'PROB_EXAC_LOF_TOLERANT_NULL':23,'PROB_EXAC_NONTCGA_LOF_INTOLERANT':24,
-                     'PROB_EXAC_NONTCGA_LOF_INTOLERANT_HOM':25, 'PROB_EXAC_NONTCGA_LOF_TOLERANT_NULL': 26,
-                     'PROB_GNOMAD_LOF_INTOLERANT':27, 'PROB_GNOMAD_LOF_INTOLERANT_HOM': 28, 'PROB_GNOMAD_LOF_TOLERANT_NULL':29,
-                     'ESSENTIAL_GENE_CRISPR': 30, 'ESSENTIAL_GENE_CRISPR2': 31}
+   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 
+                     'ENSEMBL_GENE_ID':1, 
+                     'ENSEMBL_PROTEIN_ID':2, 
+                     'SYMBOL':3, 
+                     'SYMBOL_ENTREZ':4,
+                     'ENTREZ_ID':5, 
+                     'UNIPROT_ID':6, 
+                     'UNIPROT_ACC':7,
+                     'REFSEQ_MRNA':8, 
+                     'CORUM_ID':9,
+                     'TUMOR_SUPPRESSOR':10,
+                     'TUMOR_SUPPRESSOR_EVIDENCE':11, 
+                     'ONCOGENE':12, 
+                     'ONCOGENE_EVIDENCE':13,
+                     'MIM_PHENOTYPE_ID':14, 
+                     'OPENTARGETS_DISEASE_ASSOCS':15,
+                     'OPENTARGETS_TRACTABILITY_COMPOUND':16, 
+                     'OPENTARGETS_TRACTABILITY_ANTIBODY':17,
+                     'PROB_HAPLOINSUFFICIENCY': 18,
+                     'PROB_EXAC_LOF_INTOLERANT':19,
+                     'PROB_EXAC_LOF_INTOLERANT_HOM':20,
+                     'PROB_EXAC_LOF_TOLERANT_NULL':21,
+                     'PROB_EXAC_NONTCGA_LOF_INTOLERANT':22,
+                     'PROB_EXAC_NONTCGA_LOF_INTOLERANT_HOM':23, 
+                     'PROB_EXAC_NONTCGA_LOF_TOLERANT_NULL': 24,
+                     'PROB_GNOMAD_LOF_INTOLERANT':25, 
+                     'PROB_GNOMAD_LOF_INTOLERANT_HOM': 26, 
+                     'PROB_GNOMAD_LOF_TOLERANT_NULL':27,
+                     'ESSENTIAL_GENE_CRISPR': 28, 
+                     'ESSENTIAL_GENE_CRISPR2': 29}
    
    vcf_info_element_types = {}
    for e in vcf.header_iter():
