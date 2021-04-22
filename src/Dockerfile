@@ -1,4 +1,3 @@
-
 ###################################################
 # Stage 1 - docker container to build ensembl-vep #
 ###################################################
@@ -24,7 +23,7 @@ RUN apt-get update && apt-get -y install \
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV BRANCH master
+ENV BRANCH release/103
 
 # Working directory
 WORKDIR $OPT_SRC
@@ -164,7 +163,7 @@ ENV PERL5LIB $PERL5LIB_TMP
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
 ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
-RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/100/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
+RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/103/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
 
 
 # Final steps
@@ -201,7 +200,8 @@ WORKDIR /
 
 ENV PACKAGE_BIO="libhts2 bedtools"
 ENV PACKAGE_DEV="gfortran gcc-multilib autoconf liblzma-dev libncurses5-dev libblas-dev liblapack-dev libssh2-1-dev libxml2-dev vim libssl-dev libcairo2-dev libbz2-dev libcurl4-openssl-dev"
-ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9 toml==0.10.1"
+#ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9 toml==0.10.1"
+ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9"
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		nano ed locales vim-tiny fonts-texgyre \
@@ -221,7 +221,6 @@ RUN wget https://github.com/EBIvariation/vcf-validator/releases/download/v0.9.3/
 mv vcf_validator_linux /usr/local/bin/vcf_validator && \
 chmod 755 /usr/local/bin/vcf_validator
 
-
 USER root
 WORKDIR /
 
@@ -239,12 +238,11 @@ RUN sudo -H pip install $PYTHON_MODULES
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libpq-dev libxt-dev libudunits2-dev
 
-
 USER root
 WORKDIR /
 
 ## vt - variant tool set - use conda version
-## primary use in PCGR/CPSR: decomposition of multiallelic variants in a VCF file
+## primary use in GVANNO/PCGR/CPSR: decomposition of multiallelic variants in a VCF file
 RUN wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh \
     && chmod 0755 miniconda.sh
 RUN ["/bin/bash", "-c", "/miniconda.sh -b -p /conda"]

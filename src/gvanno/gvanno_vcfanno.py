@@ -17,6 +17,7 @@ def __main__():
    parser.add_argument('out_vcf', help='Output VCF file with appended annotations from multiple VCF files')
    parser.add_argument('gvanno_db_dir', help='gvanno data directory')
    parser.add_argument('--num_processes', help="Number of processes vcfanno can use during annotation", default=4)
+   parser.add_argument("--ncer",action = "store_true", help="Annotate VCF with ranking of variant deleteriousness in non-coding regions (ncER)")
    parser.add_argument("--clinvar",action = "store_true", help="Annotate VCF with annotations from ClinVar")
    parser.add_argument("--dbnsfp",action = "store_true", help="Annotate VCF with annotations from database of non-synonymous functional predictions")
    parser.add_argument("--uniprot",action = "store_true", help="Annotate VCF with protein functional features from the UniProt Knowledgebase")
@@ -28,19 +29,19 @@ def __main__():
    args = parser.parse_args()
    query_info_tags = get_vcf_info_tags(args.query_vcf)
    vcfheader_file = args.out_vcf + '.tmp.' + str(random.randrange(0,10000000)) + '.header.txt'
-   conf_fname = args.out_vcf + '.tmp.conf.toml'
+   vcfanno_conf_fname = args.out_vcf + '.tmp.conf.toml'
    print_vcf_header(args.query_vcf, vcfheader_file, chromline_only = False)
-   run_vcfanno(args.num_processes, args.query_vcf, query_info_tags, vcfheader_file, args.gvanno_db_dir, conf_fname, args.out_vcf, args.clinvar, args.dbnsfp, args.uniprot, args.gvanno_xref,args.gwas, args.cancer_hotspots)
+   run_vcfanno(args.num_processes, args.query_vcf, vcfanno_conf_fname, query_info_tags, vcfheader_file, args.gvanno_db_dir, args.out_vcf, args.ncer, args.clinvar, args.dbnsfp, args.uniprot, args.gvanno_xref,args.gwas, args.cancer_hotspots)
 
 
-def prepare_vcfanno_configuration(vcfanno_data_directory, conf_fname, vcfheader_file, logger, datasource_info_tags, query_info_tags, datasource):
+def prepare_vcfanno_configuration(vcfanno_data_directory, vcfanno_conf_fname, vcfheader_file, logger, datasource_info_tags, query_info_tags, datasource):
    for t in datasource_info_tags:
       if t in query_info_tags:
          logger.warning("Query VCF has INFO tag " + str(t) + ' - this is also present in the ' + str(datasource) + ' VCF/BED annotation file. This tag will be overwritten if not renamed in the query VCF')
-   append_to_conf_file(datasource, datasource_info_tags, vcfanno_data_directory, conf_fname)
+   append_to_conf_file(datasource, datasource_info_tags, vcfanno_data_directory, vcfanno_conf_fname)
    append_to_vcf_header(vcfanno_data_directory, datasource, vcfheader_file)
 
-def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvanno_db_directory, conf_fname, output_vcf, clinvar, dbnsfp, uniprot, gvanno_xref,gwas, cancer_hotspots):
+def run_vcfanno(num_processes, query_vcf, vcfanno_conf_fname, query_info_tags, vcfheader_file, gvanno_db_directory, output_vcf, ncer, clinvar, dbnsfp, uniprot, gvanno_xref,gwas, cancer_hotspots):
    """
    Function that annotates a VCF file with vcfanno against a user-defined set of germline and somatic VCF files
    """
@@ -51,25 +52,28 @@ def run_vcfanno(num_processes, query_vcf, query_info_tags, vcfheader_file, gvann
    uniprot_info_tags = ["UNIPROT_FEATURE"]
    gvanno_xref_info_tags = ["GVANNO_XREF"]
    gwas_info_tags = ["GWAS_HIT"]
+   ncer_info_tags = ["NCER_PERCENTILE"]
    cancer_hotspots_info_tags = ["MUTATION_HOTSPOT","MUTATION_HOTSPOT_TRANSCRIPT","MUTATION_HOTSPOT_CANCERTYPE"]
 
    if cancer_hotspots is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, cancer_hotspots_info_tags, query_info_tags, "cancer_hotspots")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, cancer_hotspots_info_tags, query_info_tags, "cancer_hotspots")
    if clinvar is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, clinvar_info_tags, query_info_tags, "clinvar")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, clinvar_info_tags, query_info_tags, "clinvar")
    if dbnsfp is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, dbnsfp_info_tags, query_info_tags, "dbnsfp")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, dbnsfp_info_tags, query_info_tags, "dbnsfp")
    if uniprot is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, uniprot_info_tags, query_info_tags, "uniprot")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, uniprot_info_tags, query_info_tags, "uniprot")
    if gvanno_xref is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, gvanno_xref_info_tags, query_info_tags, "gvanno_xref")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, gvanno_xref_info_tags, query_info_tags, "gvanno_xref")
    if gwas is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, conf_fname, vcfheader_file, logger, gwas_info_tags, query_info_tags, "gwas")
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, gwas_info_tags, query_info_tags, "gwas")
+   if ncer is True:
+      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, ncer_info_tags, query_info_tags, "ncer")
 
    out_vcf_vcfanno_unsorted1 = output_vcf + '.tmp.unsorted.1'
    query_prefix = re.sub('\.vcf.gz$','',query_vcf)
    print_vcf_header(query_vcf, vcfheader_file, chromline_only = True)
-   command1 = "vcfanno -p=" + str(num_processes) + " " + str(conf_fname) + " " + str(query_vcf) + " > " + str(out_vcf_vcfanno_unsorted1) + " 2> " + str(query_prefix) + '.vcfanno.log'
+   command1 = "vcfanno -p=" + str(num_processes) + " " + str(vcfanno_conf_fname) + " " + str(query_vcf) + " > " + str(out_vcf_vcfanno_unsorted1) + " 2> " + str(query_prefix) + '.vcfanno.log'
    os.system(command1)
    
    os.system('cat ' + str(vcfheader_file) + ' > ' + str(output_vcf))
@@ -87,13 +91,13 @@ def append_to_vcf_header(gvanno_db_directory, datasource, vcfheader_file):
    os.system('cat ' + str(vcf_info_tags_file) + ' >> ' + str(vcfheader_file))
 
 
-def append_to_conf_file(datasource, datasource_info_tags, gvanno_db_directory, conf_fname):
+def append_to_conf_file(datasource, datasource_info_tags, gvanno_db_directory, vcfanno_conf_fname):
    """
-   Function that appends data to a vcfanno conf file ('conf_fname') according to user-defined ('datasource'). 
+   Function that appends data to a vcfanno conf file ('vcfanno_conf_fname') according to user-defined ('datasource'). 
    The datasource defines the set of tags that will be appended during annotation
    """
-   fh = open(conf_fname,'a')
-   if datasource != 'uniprot' and datasource != 'gvanno_xref':
+   fh = open(vcfanno_conf_fname,'a')
+   if datasource != 'uniprot' and datasource != 'gvanno_xref' and datasource != 'ncer':
       fh.write('[[annotation]]\n')
       fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.vcf.gz"\n')
       fields_string = 'fields = ["' + '","'.join(datasource_info_tags) + '"]'
@@ -102,13 +106,22 @@ def append_to_conf_file(datasource, datasource_info_tags, gvanno_db_directory, c
       fh.write(fields_string + '\n')
       fh.write(ops_string + '\n\n')
    else:
-      if datasource == 'uniprot' or datasource == 'gvanno_xref':
-         fh.write('[[annotation]]\n')
-         fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.bed.gz"\n')
-         fh.write('columns=[4]\n')
-         names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
-         fh.write(names_string +'\n')
-         fh.write('ops=["concat"]\n\n')
+      if datasource == 'uniprot' or datasource == 'gvanno_xref' or datasource == 'ncer':
+         if datasource == 'uniprot' or datasource == 'gvanno_xref':
+            fh.write('[[annotation]]\n')
+            fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.bed.gz"\n')
+            fh.write('columns=[4]\n')
+            names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
+            fh.write(names_string +'\n')
+            fh.write('ops=["concat"]\n\n')
+            
+         else: ## ncER
+            fh.write('[[annotation]]\n')
+            fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.bed.gz"\n')
+            fh.write('columns=[4]\n')
+            names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
+            fh.write(names_string +'\n')
+            fh.write('ops=["mean"]\n\n')
    fh.close()
    return
 

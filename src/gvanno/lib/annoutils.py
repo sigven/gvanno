@@ -4,7 +4,6 @@ import os,re,sys
 import csv
 import logging
 import gzip
-import toml
 from cyvcf2 import VCF, Writer
 import subprocess
 
@@ -234,86 +233,6 @@ def get_correct_cpg_transcript(vep_csq_records):
    return csq_idx
 
 
-def read_config_options(configuration_file, base_dir, genome_assembly, logger, wflow = 'pcgr'):
-   
-   ## read default options
-   config_options = {}
-   configuration_file_default = os.path.join(base_dir,'data',str(genome_assembly),'pcgr_configuration_default.toml')  
-   if wflow == 'cpsr':
-      configuration_file_default = os.path.join(base_dir,'data',str(genome_assembly),'cpsr_configuration_default.toml')  
-   if wflow == 'gvanno':
-      configuration_file_default = os.path.join(base_dir,'data',str(genome_assembly),'gvanno_configuration_default.toml')  
-   if not os.path.exists(configuration_file_default):
-      err_msg = "Default configuration file " + str(configuration_file_default) + " does not exist - exiting"
-      error_message(err_msg,logger)
-   try:
-      config_options = toml.load(configuration_file_default)
-   except (IndexError,TypeError):
-      err_msg = 'Default configuration file ' + str(configuration_file_default) + ' is not formatted correctly'
-      error_message(err_msg, logger)
-
-   ## override with options set by the users
-   try:
-      user_options = toml.load(configuration_file)
-   except (IndexError,TypeError):
-      err_msg = 'Configuration file ' + str(configuration_file) + ' is not formatted correctly'
-      error_message(err_msg, logger)
-   
-   
-   for section in config_options:
-      if section in user_options:
-         for var in config_options[section]:
-            if not var in user_options[section]:
-               continue
-            if isinstance(config_options[section][var],bool) and not isinstance(user_options[section][var],bool):
-               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting boolean)'
-               error_message(err_msg, logger)
-            if isinstance(config_options[section][var],int) and not isinstance(user_options[section][var],int):
-               err_msg = 'Configuration value \"' + str(user_options[section][var]) + '\" for ' + str(var) + ' cannot be parsed properly (expecting integer)'
-               error_message(err_msg, logger)
-            if isinstance(config_options[section][var],float) and (not isinstance(user_options[section][var],float) and not isinstance(user_options[section][var],int)):
-               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting float)'
-               error_message(err_msg, logger)
-            if isinstance(config_options[section][var],str) and not isinstance(user_options[section][var],str):
-               err_msg = 'Configuration value ' + str(user_options[section][var]) + ' for ' + str(var) + ' cannot be parsed properly (expecting string)'
-               error_message(err_msg, logger)
-            normalization_options = ['default','exome','genome','exome2genome']
-            populations_tgp = ['afr','amr','eas','sas','eur','global']
-            populations_gnomad = ['afr','amr','eas','sas','nfe','oth','fin','asj','global']
-            theme_options = ['default', 'cerulean', 'journal', 'flatly', 'readable', 'spacelab', 'united', 'cosmo', 'lumen', 'paper', 'sandstone', 'simplex','yeti']
-            if var == 'pop_gnomad' and not str(user_options[section][var]) in populations_gnomad:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
-                  ' cannot be parsed properly (expecting \'afr\', \'amr\', \'asj\', \'eas\', \'fin\', \'global\', \'nfe\', \'oth\', or \'sas\')'
-               error_message(err_msg, logger)
-            if var == 'pop_tgp' and not str(user_options[section][var]) in populations_tgp:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
-                  ' cannot be parsed properly (expecting \'afr\', \'amr\', \'eas\', \'eur\', \'global\', or \'sas\')'
-               error_message(err_msg, logger)
-            if var == 'report_theme' and not str(user_options[section][var]) in theme_options:
-               err_msg = 'Configuration value \'' + str(user_options[section][var]) + '\' for ' + str(var) + \
-                  ' cannot be parsed properly (expecting \'default\', \'cerulean\', \'journal\', \'flatly\', \'readable\', \'spacelab\', \'united\', \'cosmo\', \'lumen\', \'paper\', \'sandstone\', \'simplex\', or \'yeti\')'
-               error_message(err_msg, logger)
-            if var.startswith('maf_'):
-               if user_options[section][var] < 0 or user_options[section][var] > 1:
-                  err_msg = "MAF value: " + str(var) + " must be within the [0,1] range, current value is " + str(user_options[section][var]) + ")"
-                  error_message(err_msg,logger)
-            if var == 'vep_pick_order':
-               values = str(user_options['other'][var]).split(',')
-               permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane']
-               num_permitted_sources = 0
-               for v in values:
-                  if v in permitted_sources:
-                     num_permitted_sources += 1
-               
-               if num_permitted_sources != 8:
-                  err_msg = "Configuration value vep_pick_order = " + str(user_options['other']['vep_pick_order']) + " is formatted incorrectly should be a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length,mane"
-                  error_message(err_msg, logger)
-
-            config_options[section][var] = user_options[section][var]
-
-   return config_options
-
-
 def threeToOneAA(aa_change):
 	
    for three_letter_aa in threeLettertoOneLetterAA.keys():
@@ -347,42 +266,40 @@ def map_variant_effect_predictors(rec, algorithms):
          rec.INFO['EFFECT_PREDICTIONS'] = dbnsfp_predictions[dbnsfp_key]
          for algo_pred in rec.INFO['EFFECT_PREDICTIONS'].split('&'):
             if algo_pred.startswith('sift:'):
-               rec.INFO['SIFT_DBNSFP'] = str(algo_pred.split(':')[1])
-            if algo_pred.startswith('sift4g:'):
-               rec.INFO['SIFT4G_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_SIFT'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('provean:'):
-               rec.INFO['PROVEAN_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_PROVEAN'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('m-cap:'):
-               rec.INFO['M_CAP_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_M_CAP'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('mutpred:'):
-               rec.INFO['MUTPRED_DBNSFP'] = str(algo_pred.split(':')[1])
-            if algo_pred.startswith('metalr:'):
-               rec.INFO['META_LR_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_MUTPRED'] = str(algo_pred.split(':')[1])
+            if algo_pred.startswith('metarnn:'):
+               rec.INFO['DBNSFP_META_RNN'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('fathmm:'):
-               rec.INFO['FATHMM_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_FATHMM'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('fathmm_mkl_coding:'):
-               rec.INFO['FATHMM_MKL_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_FATHMM_MKL'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('mutationtaster:'):
-               rec.INFO['MUTATIONTASTER_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_MUTATIONTASTER'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('mutationassessor:'):
-               rec.INFO['MUTATIONASSESSOR_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_MUTATIONASSESSOR'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('deogen2:'):
-               rec.INFO['DEOGEN2_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_DEOGEN2'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('primateai:'):
-               rec.INFO['PRIMATEAI_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_PRIMATEAI'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('list_s2:'):
-               rec.INFO['LIST_S2_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_LIST_S2'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('gerp_rs:'):
-               rec.INFO['GERP_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_GERP'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('bayesdel_addaf:'):
-               rec.INFO['BAYESDEL_ADDAF_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_BAYESDEL_ADDAF'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('aloft:'):
-               rec.INFO['ALOFTPRED_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_ALOFTPRED'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('splice_site_rf:'):
-               rec.INFO['SPLICE_SITE_RF_DBNSFP'] = str(algo_pred.split(':')[1])
+               rec.INFO['DBNSFP_SPLICE_SITE_RF'] = str(algo_pred.split(':')[1])
             if algo_pred.startswith('splice_site_ada:'):
-               rec.INFO['SPLICE_SITE_ADA_DBNSFP'] = str(algo_pred.split(':')[1])
-            
+               rec.INFO['DBNSFP_SPLICE_SITE_ADA'] = str(algo_pred.split(':')[1])
+
 
 
 def detect_reserved_info_tag(tag, tag_name, logger):
@@ -583,11 +500,21 @@ def make_transcript_xref_map(rec, fieldmap, xref_tag = 'PCGR_ONCO_XREF'):
    return(transcript_xref_map)
 
 def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
-   vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD','gnomAD_AFR_AF':'AFR_AF_GNOMAD','gnomAD_EAS_AF':'EAS_AF_GNOMAD',
-                     'gnomAD_NFE_AF':'NFE_AF_GNOMAD','gnomAD_AF':'GLOBAL_AF_GNOMAD',
-                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD','gnomAD_OTH_AF':'OTH_AF_GNOMAD','gnomAD_ASJ_AF':'ASJ_AF_GNOMAD',
-                     'gnomAD_FIN_AF':'FIN_AF_GNOMAD','AFR_AF':'AFR_AF_1KG',
-                     'AMR_AF':'AMR_AF_1KG','SAS_AF':'SAS_AF_1KG','EUR_AF':'EUR_AF_1KG','EAS_AF':'EAS_AF_1KG', 'AF':'GLOBAL_AF_1KG'}
+   vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD',
+                     'gnomAD_AFR_AF':'AFR_AF_GNOMAD',
+                     'gnomAD_EAS_AF':'EAS_AF_GNOMAD',
+                     'gnomAD_NFE_AF':'NFE_AF_GNOMAD',
+                     'gnomAD_AF':'GLOBAL_AF_GNOMAD',
+                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD',
+                     'gnomAD_OTH_AF':'OTH_AF_GNOMAD',
+                     'gnomAD_ASJ_AF':'ASJ_AF_GNOMAD',
+                     'gnomAD_FIN_AF':'FIN_AF_GNOMAD',
+                     'AFR_AF':'AFR_AF_1KG',
+                     'AMR_AF':'AMR_AF_1KG',
+                     'SAS_AF':'SAS_AF_1KG',
+                     'EUR_AF':'EUR_AF_1KG',
+                     'EAS_AF':'EAS_AF_1KG', 
+                     'AF':'GLOBAL_AF_1KG'}
 
    vcf = VCF(query_vcf)
    vep_csq_index2fields = {}
@@ -650,7 +577,8 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                               ## assign additional gene/transcript annotations from the custom transcript xref map (PCGR/CPSR) as key,value pairs in the csq_record object
                               csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
                      else:
-                        logger.warning('Could not find transcript xrefs for ' + str(ensembl_transcript_id))
+                        if re.match(r'ENST', ensembl_transcript_id):
+                           logger.warning('Could not find transcript xrefs for ' + str(ensembl_transcript_id))
 
                   ## Specifically assign PFAM protein domain as a csq_record key
                   if vep_csq_fields_map['index2field'][j] == 'DOMAINS':

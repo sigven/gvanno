@@ -9,7 +9,6 @@ import logging
 import sys
 import annoutils
 import pandas as np
-import toml
 from cyvcf2 import VCF
 
 def __main__():
@@ -17,7 +16,6 @@ def __main__():
    parser = argparse.ArgumentParser(description='Verify input data for gvanno')
    parser.add_argument('gvanno_dir',help='Docker location of gvanno base directory with accompanying data directory, e.g. /data')
    parser.add_argument('input_vcf', help='VCF input file with query variants (SNVs/InDels)')
-   parser.add_argument('configuration_file', help='Configuration file (TOML-formatted, e.g. gvanno_conf.toml)')
    parser.add_argument('vcf_validation',type=int, help="Perform VCF validation with Ensembl's vcf-validator")
    parser.add_argument('genome_assembly',help='grch37 or grch38')
    parser.add_argument('--output_dir', dest='output_dir', help='Output directory', default='/workdir/output')
@@ -25,7 +23,7 @@ def __main__():
 
    args = parser.parse_args()
    
-   ret = validate_gvanno_input(args.gvanno_dir, args.input_vcf, args.configuration_file, args.vcf_validation, args.genome_assembly, args.output_dir)
+   ret = validate_gvanno_input(args.gvanno_dir, args.input_vcf, args.vcf_validation, args.genome_assembly, args.output_dir)
    if ret != 0:
       sys.exit(-1)
 
@@ -98,7 +96,7 @@ def simplify_vcf(input_vcf, vcf, output_dir, logger):
    os.system('tabix -p vcf ' + str(input_vcf_gvanno_ready_decomposed) + '.gz')
    os.system('rm -f ' + str(input_vcf_gvanno_ready) + ' /workdir/output/decompose.log')
 
-def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, vcf_validation, genome_assembly, output_dir):
+def validate_gvanno_input(gvanno_directory, input_vcf, vcf_validation, genome_assembly, output_dir):
    """
    Function that reads the input file to gvanno (VCF file) and performs the following checks:
    1. Check that VCF file is properly formatted (according to EBIvariation/vcf-validator - VCF v4.2)
@@ -107,7 +105,6 @@ def validate_gvanno_input(gvanno_directory, input_vcf, configuration_file, vcf_v
    4. Any genotype data from VCF input file is stripped, and the resulting VCF file is sorted and indexed (bgzip + tabix) 
    """
    logger = annoutils.getlogger('gvanno-validate-input')
-   #config_options = annoutils.read_config_options(configuration_file, gvanno_directory, genome_assembly, logger, wflow = 'gvanno')
 
    if not input_vcf == 'None':
       if vcf_validation == 1:

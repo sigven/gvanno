@@ -9,13 +9,12 @@ import logging
 import sys
 import getpass
 import platform
-import toml
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.4.1'
-DB_VERSION = 'GVANNO_DB_VERSION = 20201206'
-VEP_VERSION = '102'
-GENCODE_VERSION = '36'
+GVANNO_VERSION = 'dev'
+DB_VERSION = 'GVANNO_DB_VERSION = 20210422'
+VEP_VERSION = '103'
+GENCODE_VERSION = '37'
 VEP_ASSEMBLY = "GRCh38"
 DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
 
@@ -30,20 +29,23 @@ def __main__():
                                     formatter_class=RawTextHelpFormatter, usage="\n  %(prog)s -h [options]\n" + str(program_options))
    parser._action_groups.pop()
    required = parser.add_argument_group('Required arguments')
-   optional = parser.add_argument_group('Optional arguments')
+   optional_vep = parser.add_argument_group('VEP optional arguments')
+   optional = parser.add_argument_group('Other optional arguments')
 
    optional.add_argument('--force_overwrite', action = "store_true", help='By default, the script will fail with an error if any ' + \
       'output file already exists.\nYou can force the overwrite of existing result files by using this flag, default: %(default)s')
    optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
    optional.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator, default: %(default)s")
-   optional.add_argument('--lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
+   optional.add_argument('--docker-uid', dest = 'docker_user_id', help = 'Docker user ID. default is the host system user ID. If you are experiencing permission errors, try setting this up to root (`--docker-uid root`)')
+   optional_vep.add_argument('--vep_regulatory', action='store_true', help = 'Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).')
+   optional_vep.add_argument('--vep_lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
       "in Variant Effect Predictor (VEP), default: %(default)s")
-   optional.add_argument('--vep_n_forks', default = 4, help="Number of forks for Variant Effect Predictor (VEP) processing, default: %(default)s")
-   optional.add_argument('--vep_buffer_size', default = 5000, help="Variant buffer size (variants read into memory simultaneously) " + \
+   optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for Variant Effect Predictor (VEP) processing, default: %(default)s")
+   optional_vep.add_argument('--vep_buffer_size', default = 5000, help="Variant buffer size (variants read into memory simultaneously) " + \
       "for Variant Effect Predictor (VEP) processing\n- set lower to reduce memory usage, default: %(default)s")
-   optional.add_argument('--vep_pick_order', default = "canonical,appris,biotype,ccds,rank,tsl,length,mane", help="Comma-separated string " + \
+   optional_vep.add_argument('--vep_pick_order', default = "canonical,appris,biotype,ccds,rank,tsl,length,mane", help="Comma-separated string " + \
       "of ordered transcript properties for primary variant pick in\nVariant Effect Predictor (VEP) processing, default: %(default)s")
-   optional.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: %(default)s")
+   optional_vep.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: %(default)s")
    optional.add_argument('--vcfanno_n_processes', default = 4, help="Number of processes for vcfanno " + \
       "processing (see https://github.com/brentp/vcfanno#-p), default: %(default)s")
    required.add_argument('--query_vcf', help='VCF input file with germline query variants (SNVs/InDels).', required = True)
@@ -51,7 +53,6 @@ def __main__():
    required.add_argument('--output_dir',help='Output directory', required = True)
    required.add_argument('--genome_assembly',choices = ['grch37','grch38'], help='Genome assembly build: grch37 or grch38', required = True)
    required.add_argument('--container', choices = ['docker', 'singularity'], action = "store",help="Run gvanno with docker or singularity")
-   #required.add_argument('--conf', dest='configuration_file', help='Configuration file in TOML format', required = True)
    required.add_argument('--sample_id',help="Sample identifier - prefix for output files", required = True)
    
    args = parser.parse_args()
@@ -187,13 +188,10 @@ def verify_input_files(arg_dict, logger):
    
    host_directories = {}
    host_directories['input_vcf_dir_host'] = input_vcf_dir
-   host_directories['input_conf_dir_host'] = input_conf_dir
    host_directories['db_dir_host'] = db_assembly_dir
    host_directories['base_dir_host'] = base_dir
    host_directories['output_dir_host'] = output_dir_full
    host_directories['input_vcf_basename_host'] = input_vcf_basename
-   host_directories['input_conf_basename_host'] = input_conf_basename
-
    
    return host_directories
    
@@ -234,6 +232,7 @@ def run_gvanno(arg_dict, host_directories):
    output_vcf = 'None'
    output_pass_vcf = 'None'
    uid = ''
+   docker_user_id = arg_dict['docker_user_id']
 
    global GENCODE_VERSION, VEP_ASSEMBLY
    if arg_dict['genome_assembly'] == 'grch37':
@@ -241,7 +240,9 @@ def run_gvanno(arg_dict, host_directories):
       VEP_ASSEMBLY = 'GRCh37'
 
    logger = getlogger('gvanno-get-OS')
-   if platform.system() == 'Linux' or platform.system() == 'Darwin' or sys.platform == 'darwin' or sys.platform == 'linux2' or sys.platform == 'linux':
+   if docker_user_id:
+      uid = docker_user_id
+   elif platform.system() == 'Linux' or platform.system() == 'Darwin' or sys.platform == 'darwin' or sys.platform == 'linux2' or sys.platform == 'linux':
       uid = os.getuid()
    else:
       if platform.system() == 'Windows' or sys.platform == 'win32' or sys.platform == 'cygwin':
@@ -258,25 +259,20 @@ def run_gvanno(arg_dict, host_directories):
    data_dir = '/data'
    output_dir = '/workdir/output'
    vep_dir = '/usr/local/share/vep/data'
-
    input_vcf_docker = 'None'
-   input_conf_docker = 'None'
    
    if host_directories['input_vcf_basename_host'] != 'NA':
       input_vcf_docker = '/workdir/input_vcf/' + str(host_directories['input_vcf_basename_host'])
-   if host_directories['input_conf_basename_host'] != 'NA':
-      input_conf_docker = '/workdir/input_conf/' + str(host_directories['input_conf_basename_host'])
-
+   
    vep_volume_mapping = str(vepdb_dir_host) + ":/usr/local/share/vep/data"
    databundle_volume_mapping = str(host_directories['base_dir_host']) + ":/data"
    input_vcf_volume_mapping = str(host_directories['input_vcf_dir_host']) + ":/workdir/input_vcf"
-   input_conf_volume_mapping = str(host_directories['input_conf_dir_host']) + ":/workdir/input_conf"
    output_volume_mapping = str(host_directories['output_dir_host']) + ":/workdir/output"
 
    if arg_dict['container'] == 'docker':
-      container_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(vep_volume_mapping) + " -v=" + str(input_conf_volume_mapping) + " -v=" + str(output_volume_mapping)
+      container_command_run1 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(vep_volume_mapping) + " -v=" + str(output_volume_mapping)
    elif arg_dict['container'] == 'singularity':
-      container_command_run1 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(vep_volume_mapping) + " -B " + str(input_conf_volume_mapping) + " -B " + str(output_volume_mapping)
+      container_command_run1 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(vep_volume_mapping) + " -B " + str(output_volume_mapping)
 
    if host_directories['input_vcf_dir_host'] != 'NA' and arg_dict['container'] == 'docker':
       container_command_run1 = container_command_run1  + " -v=" + str(input_vcf_volume_mapping)
@@ -297,19 +293,18 @@ def run_gvanno(arg_dict, host_directories):
       container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
       docker_command_run_end = '\"'
 
-   ## GVANNO|start - Log key information about sample, options and sequencing assay/design
+   ## GVANNO|start - Log key information about sample, options and assembly
    logger = getlogger("gvanno-start")
    logger.info("--- Germline variant annotation (gvanno) workflow ----")
    logger.info("Sample name: " + str(arg_dict['sample_id']))
    logger.info("Genome assembly: " + str(arg_dict['genome_assembly']))
-   #logger.info("Loss-of-function prediction: " + str(arg_dict['lof_prediction']))
    print()
 
    ## GVANNO|validate - verify input file (contents/format)
    logger = getlogger('gvanno-validate-input')
    logger.info("STEP 0: Validate input data")
    vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + \
-       str(input_conf_docker) + " " + str(vcf_validation) + " "  + str(arg_dict['genome_assembly']) + docker_command_run_end
+      str(vcf_validation) + " "  + str(arg_dict['genome_assembly']) + docker_command_run_end
 
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
@@ -335,20 +330,22 @@ def run_gvanno(arg_dict, host_directories):
       loftee_dir = '/opt/vep/src/ensembl-vep/modules'
       plugins_in_use = "NearestExonJB"
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
-         "--uniprot --appris --biotype --canonical --gencode_basic --cache --numbers --total_length --allele_number --no_escape " + \
+         "--uniprot --appris --biotype --canonical --gencode_basic --mane --cache --numbers --total_length --allele_number --no_escape " + \
          "--xref_refseq --plugin NearestExonJB,max_range=50000"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(arg_dict['vep_pick_order']) + \
          " --force_overwrite --species homo_sapiens --assembly " + str(VEP_ASSEMBLY) + " --offline --fork " + \
          str(arg_dict['vep_n_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       if arg_dict['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
-      if arg_dict['lof_prediction'] == 1:
+      if arg_dict['vep_regulatory'] == 1:
+         vep_options = vep_options + " --regulatory"
+      if arg_dict['vep_lof_prediction'] == 1:
          plugins_in_use = plugins_in_use + ", LoF"
          vep_options += " --plugin LoF,loftee_path:" + loftee_dir + ",human_ancestor_fa:" + str(ancestor_assembly)  + ",use_gerp_end_trunc:0 --dir_plugins " + loftee_dir
 
       ## Compose full VEP command
       vep_main_command = str(container_command_run1) + "vep --input_file " + str(input_vcf_gvanno_ready) + " --output_file " + str(vep_vcf) + \
-         " " + str(vep_options) + " --fasta " + str(fasta_assembly) + docker_command_run_end
+         " " + str(vep_options) + " --buffer_size " + str(arg_dict['vep_buffer_size']) + " --fasta " + str(fasta_assembly) + docker_command_run_end
       vep_bgzip_command = container_command_run1 + "bgzip -f -c " + str(vep_vcf) + " > " + str(vep_vcf) + ".gz" + docker_command_run_end
       vep_tabix_command = str(container_command_run1) + "tabix -f -p vcf " + str(vep_vcf) + ".gz" + docker_command_run_end
 
@@ -361,8 +358,9 @@ def run_gvanno(arg_dict, host_directories):
       logger.info("VEP configuration - transcript pick order: See more at https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick_options")
       logger.info("VEP configuration - buffer size: " + str(arg_dict['vep_buffer_size']))
       logger.info("VEP configuration - skip intergenic: " + str(arg_dict['vep_skip_intergenic']))
+      logger.info("VEP configuration - look for overlap with regulatory regions: " + str(arg_dict['vep_regulatory']))
       logger.info("VEP configuration - number of forks: " + str(arg_dict['vep_n_forks']))
-      logger.info("VEP configuration - loss-of-function prediction: " + str(arg_dict['lof_prediction']))
+      logger.info("VEP configuration - loss-of-function prediction: " + str(arg_dict['vep_lof_prediction']))
       logger.info("VEP configuration - plugins in use: " + str(plugins_in_use))
 
       check_subprocess(vep_main_command)
@@ -373,10 +371,10 @@ def run_gvanno(arg_dict, host_directories):
       ## GVANNO|vcfanno - annotate VCF against a number of variant annotation resources
       print()
       logger = getlogger('gvanno-vcfanno')
-      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
+      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, ncER, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
       logger.info('vcfanno configuration - number of processes (-p): ' + str(arg_dict['vcfanno_n_processes']))
       gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(arg_dict['vcfanno_n_processes']) + \
-         " --dbnsfp --clinvar --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
+         " --dbnsfp --clinvar --ncer --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
          " " + os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
@@ -386,7 +384,7 @@ def run_gvanno(arg_dict, host_directories):
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Summarise gene and variant annotations with gvanno-summarise")
       gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + \
-         os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['lof_prediction'])) + docker_command_run_end
+         os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['vep_lof_prediction'])) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       
