@@ -282,7 +282,7 @@ def run_gvanno(arg_dict, host_directories):
    if arg_dict['container'] == 'docker':
       container_command_run1 = container_command_run1 + " -w=/workdir/output " + str(DOCKER_IMAGE_VERSION) + " sh -c \""
    elif arg_dict['container'] == 'singularity':
-      container_command_run1 = container_command_run1 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
+      container_command_run1 = container_command_run1 + " -W /workdir/output " + 'src/gvanno.sif' + " sh -c \""
 
    if arg_dict['container'] == 'docker':
       container_command_run2 = "docker run --rm -t -u " + str(uid) + " -v=" +  str(databundle_volume_mapping) + " -v=" + str(output_volume_mapping)
@@ -290,7 +290,7 @@ def run_gvanno(arg_dict, host_directories):
       docker_command_run_end = '\"'
    elif arg_dict['container'] == 'singularity':
       container_command_run2 = "singularity exec " + " -B " +  str(databundle_volume_mapping) + " -B " + str(output_volume_mapping)
-      container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.simg' + " sh -c \""
+      container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.sif' + " sh -c \""
       docker_command_run_end = '\"'
 
    ## GVANNO|start - Log key information about sample, options and assembly

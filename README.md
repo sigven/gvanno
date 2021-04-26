@@ -61,7 +61,7 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 
 ##### 1.1: Installation of Singularity (optional)
 
-0. **Note: this has only been tested with Singularity version 2.4.2, your mileage may vary with other versions**.
+0. **Note: this works for Singularity version 3.0 and higher**.
 1. [Install Singularity](https://sylabs.io/docs/)
 2. Test that singularity works by running `singularity --version`
 3. If you are in the gvanno directory, build the singularity image like so:

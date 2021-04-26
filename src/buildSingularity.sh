@@ -24,19 +24,8 @@ docker build -t gvanno .
 docker tag gvanno localhost:5000/gvanno
 docker push localhost:5000/gvanno
 
-# create a temporary singularity def file
-declare -r TMPFILE="$(mktemp --suffix 'singularity.def')"
-cat > "$TMPFILE" << EOI
-Bootstrap: docker
-Registry: http://localhost:5000
-Namespace:
-From: gvanno:latest
-EOI
-# build singularity image
-sudo SINGULARITY_NOHTTPS=1 singularity build gvanno.simg "$TMPFILE"
-
-# remove temp file
-rm -f "$TMPFILE"
+# build singularity image from the docker cached local gvanno image
+sudo SINGULARITY_NOHTTPS=1 singularity build gvanno.sif docker-daemon://gvanno:latest
 
 # stop registry server
 docker container stop registry
