@@ -36,7 +36,7 @@ def __main__():
       'output file already exists.\nYou can force the overwrite of existing result files by using this flag, default: %(default)s')
    optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
    optional.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator, default: %(default)s")
-   optional.add_argument('--docker-uid', dest = 'docker_user_id', help = 'Docker user ID. default is the host system user ID. If you are experiencing permission errors, try setting this up to root (`--docker-uid root`)')
+   optional.add_argument('--docker_uid', dest = 'docker_user_id', help = 'Docker user ID. default is the host system user ID. If you are experiencing permission errors, try setting this up to root (`--docker-uid root`)')
    optional_vep.add_argument('--vep_regulatory', action='store_true', help = 'Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).')
    optional_vep.add_argument('--vep_lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
       "in Variant Effect Predictor (VEP), default: %(default)s")
