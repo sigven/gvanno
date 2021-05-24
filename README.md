@@ -72,10 +72,12 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 #### STEP 2: Download *gvanno* and data bundle
 
 1. [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.4.2) (gvanno run script, v1.4.2)
-2. Download and unpack the latest assembly-specific data bundle in the gvanno directory
+2. Download (preferably using `wget`) and unpack the latest assembly-specific data bundle in the gvanno directory
    * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20210523.tgz) (approx 19Gb)
    * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20210523.tgz) (approx 20Gb)
-   * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
+   * Example commands:
+	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20210523.tgz`
+	* `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
 3. Pull the [gvanno Docker image (1.4.2)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.4Gb):
