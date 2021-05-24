@@ -23,7 +23,7 @@ RUN apt-get update && apt-get -y install \
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV BRANCH release/103
+ENV BRANCH release/104
 
 # Working directory
 WORKDIR $OPT_SRC
@@ -65,7 +65,7 @@ RUN if [ "$BRANCH" = "master" ]; \
   rm -rf kent-335_base_bak
 
 # Setup bioperl-ext
-WORKDIR bioperl-ext/Bio/Ext/Align/
+WORKDIR $OPT_SRC/bioperl-ext/Bio/Ext/Align/
 RUN perl -pi -e"s|(cd libs.+)CFLAGS=\\\'|\$1CFLAGS=\\\'-fPIC |" Makefile.PL
 
 # Install htslib binaries (for 'bgzip' and 'tabix')

@@ -11,10 +11,10 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = 'dev'
-DB_VERSION = 'GVANNO_DB_VERSION = 20210422'
-VEP_VERSION = '103'
-GENCODE_VERSION = '37'
+GVANNO_VERSION = '1.4.2'
+DB_VERSION = 'GVANNO_DB_VERSION = 20210523'
+VEP_VERSION = '104'
+GENCODE_VERSION = '38'
 VEP_ASSEMBLY = "GRCh38"
 DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
 
@@ -41,8 +41,8 @@ def __main__():
    optional_vep.add_argument('--vep_lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
       "in Variant Effect Predictor (VEP), default: %(default)s")
    optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for Variant Effect Predictor (VEP) processing, default: %(default)s")
-   optional_vep.add_argument('--vep_buffer_size', default = 5000, help="Variant buffer size (variants read into memory simultaneously) " + \
-      "for Variant Effect Predictor (VEP) processing\n- set lower to reduce memory usage, default: %(default)s")
+   optional_vep.add_argument('--vep_buffer_size', default = 500, help="Variant buffer size (variants read into memory simultaneously) " + \
+      "for Variant Effect Predictor (VEP) processing\n- set lower to reduce memory usage, higher to increase speed, default: %(default)s")
    optional_vep.add_argument('--vep_pick_order', default = "canonical,appris,biotype,ccds,rank,tsl,length,mane", help="Comma-separated string " + \
       "of ordered transcript properties for primary variant pick in\nVariant Effect Predictor (VEP) processing, default: %(default)s")
    optional_vep.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: %(default)s")
@@ -384,7 +384,8 @@ def run_gvanno(arg_dict, host_directories):
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Summarise gene and variant annotations with gvanno-summarise")
       gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + \
-         os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['vep_lof_prediction'])) + docker_command_run_end
+         os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['vep_lof_prediction'])) + \
+            " "  + str(int(arg_dict['vep_regulatory'])) + docker_command_run_end
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       

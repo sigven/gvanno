@@ -1,0 +1,14 @@
+##GVANNO_SOFTWARE_VERSION = 1.4.3
+##GVANNO_DB_VERSION = 20210523
+pfam = v34.0 (March 2021)
+ncER = v1.0 (March 2019)
+uniprot = release 2021_02
+corum = release 3.0 (20180903)
+onekg = phase 3 (20130502)
+dbsnp = build 154/153
+dbnsfp = v4.2 (March 2021)
+gnomad = r2.1 (October 2018)
+gwas = May 2021 (20210519)
+clinvar = May 2021 (20210501)
+opentargets = 2021_02
+gencode = 38/19

@@ -15,30 +15,29 @@ The germline variant annotator (*gvanno*) is a software package intended for ana
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record __per sample variant__.
 
 ### News
-* April 22nd 2021 - **dev update**
-  * Data updates (ClinVar, UniProt, GWAS Catalog, dbNSFP, Pfam, Open Targets Platform)
-  * Software update (VEP 103)
+* May 24th 2021 - **1.4.2 release**
+  * Software update (VEP 104)
+  * Data updates: ClinVar, GWAS catalog, CancerMine, Pfam, dbNSFP, UniProt
   * Two new options added:
-	  * `--vep_regulatory` - annotates variants for overlap with regulatory regions
+	  * `--vep_regulatory` - annotates variants for overlap with regulatory regions (details below)
 	  * `--docker-uid` - set Docker user id
-* December 7th 2020 - **1.4.1 release**
-  * Data updates (ClinVar, UniProt, GWAS Catalog, Open Targets Platform)
-  * Software update (VEP 102)
-  * Skipped DisGenet annotations (Open Targets serve similar purpose)
+  * New variant annotations for enhanced non-coding interpretation:
+	  * _REGULATORY_ANNOTATION_ : A comma-separated list of regulatory annotations from VEP's `--regulatory` option, i.e. __TF_binding_site__, __enhancer/promoter/open_chromatin__, __CTCF_binding_site__ etc. Included when the `--vep_regulatory` option is turned on in gvanno.
+	  * _NCER_PERCENTILE__: A genome-wide percentile rank score from the ncER algorithm (**n**on-**c**oding **E**ssential **R**egulation), [Wells et al., Nat Comm. (2019)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6868241/).
 
 ### Annotation resources
 
-* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v103 (GENCODE v37/v19 as the gene reference dataset)
+* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v104 (GENCODE v38/v19 as the gene reference dataset)
 * [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.2, March 2021)
 * [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
-* [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 153) - from VEP
+* [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 154) - from VEP
 * [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013) - from VEP
-* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (April 2021)
-* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 34)
+* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (May 2021)
+* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 35)
 * [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2021_02, February 2021)
 * [UniProt/SwissProt KnowledgeBase](http://www.uniprot.org) - Resource on protein sequence and functional information (2021_02, April 2021)
 * [Pfam](http://pfam.xfam.org) - Database of protein families and domains (v34.0, March 2021)
-* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (April 12th 2021)
+* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (May 19th 2021)
 
 
 ### Getting started
@@ -72,15 +71,15 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1. Clone the latest version in development
+1. [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.4.2) (gvanno run script, v1.4.2)
 2. Download and unpack the latest assembly-specific data bundle in the gvanno directory
-   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20210422.tgz) (approx 18Gb)
-   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20210422.tgz) (approx 20Gb)
+   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20210523.tgz) (approx 19Gb)
+   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20210523.tgz) (approx 20Gb)
    * *Unpacking*: `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
-3. Pull the [gvanno Docker image (dev)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.4Gb):
-   * `docker pull sigven/gvanno:dev` (gvanno annotation engine)
+3. Pull the [gvanno Docker image (1.4.2)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.4Gb):
+   * `docker pull sigven/gvanno:1.4.2` (gvanno annotation engine)
 
 #### STEP 3: Input preprocessing
 
@@ -126,7 +125,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 				    Number of forks for Variant Effect Predictor (VEP) processing, default: 4
 	--vep_buffer_size VEP_BUFFER_SIZE
 				    Variant buffer size (variants read into memory simultaneously) for Variant Effect Predictor (VEP) processing
-				    - set lower to reduce memory usage, default: 5000
+				    - set lower to reduce memory usage, higher to increase speed, default: 500
 	--vep_pick_order VEP_PICK_ORDER
 				    Comma-separated string of ordered transcript properties for primary variant pick in
 				    Variant Effect Predictor (VEP) processing, default: canonical,appris,biotype,ccds,rank,tsl,length,mane
@@ -145,10 +144,10 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contains an example VCF file. Analysis of the example VCF can be performed by the following command:
 
-	python ~/gvanno-dev/gvanno.py
-	--query_vcf ~/gvanno-dev/examples/example.grch37.vcf.gz
-	--gvanno_dir ~/gvanno-dev
-	--output_dir ~/gvanno-dev
+	python ~/gvanno-1.4.2/gvanno.py
+	--query_vcf ~/gvanno-1.4.2/examples/example.grch37.vcf.gz
+	--gvanno_dir ~/gvanno-1.4.2
+	--output_dir ~/gvanno-1.4.2
 	--sample_id example
 	--genome_assembly grch37
 	--container docker

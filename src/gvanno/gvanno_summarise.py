@@ -18,11 +18,12 @@ def __main__():
    parser.add_argument('vcf_file', help='VCF file with VEP-annotated query variants (SNVs/InDels)')
    parser.add_argument('gvanno_db_dir',help='gvanno data directory')
    parser.add_argument('lof_prediction',default=0,type=int,help='VEP LoF prediction setting (0/1)')
+   parser.add_argument('regulatory_annotation',default=0,type=int,help='Inclusion of VEP regulatory annotations (0/1)')
    args = parser.parse_args()
 
-   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction)
+   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction, args.regulatory_annotation)
 
-def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
+def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, regulatory_annotation = 0):
    """
    Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
    1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
@@ -40,13 +41,19 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
    vep_csq_fields_map = meta_vep_dbnsfp_info['vep_csq_fieldmap']
    vcf = VCF(query_vcf)
    for tag in vcf_infotags_meta:
-      if lof_prediction == 0:
+      if lof_prediction == 0 and regulatory_annotation == 0:
+         if not tag.startswith('LoF') and not tag.startswith('REGULATORY_'):
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+      elif lof_prediction == 1 and regulatory_annotation == 0:
+         if not tag.startswith('REGULATORY_'):
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+      elif lof_prediction == 0 and regulatory_annotation == 1:
          if not tag.startswith('LoF'):
             vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
       else:
          vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
 
-   
+
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
@@ -107,11 +114,20 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0):
       num_chromosome_records_processed += 1
       gvanno_xref = annoutils.make_transcript_xref_map(rec, gvanno_xref_map, xref_tag = "GVANNO_XREF")
 
-      csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
-      if 'vep_all_csq' in csq_record_results:
-         rec.INFO['VEP_ALL_CSQ'] = ','.join(csq_record_results['vep_all_csq'])
-      if 'vep_block' in csq_record_results:
-         vep_csq_records = csq_record_results['vep_block']
+      if regulatory_annotation == 1:
+         csq_record_results_all = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = False, csq_identifier = 'CSQ')
+
+         if 'vep_block' in csq_record_results_all:
+            vep_csq_records_all = csq_record_results_all['vep_block']
+            rec.INFO['REGULATORY_ANNOTATION'] = annoutils.map_regulatory_variant_annotations(vep_csq_records_all)
+
+      csq_record_results_pick = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
+
+      if 'vep_all_csq' in csq_record_results_pick:
+         rec.INFO['VEP_ALL_CSQ'] = ','.join(csq_record_results_pick['vep_all_csq'])
+      if 'vep_block' in csq_record_results_pick:
+         vep_csq_records = csq_record_results_pick['vep_block']
+
          block_idx = 0
          record = vep_csq_records[block_idx]
          for k in record:
