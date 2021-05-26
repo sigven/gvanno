@@ -79,7 +79,7 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20210523.tgz`
 	* `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
-    A _data/_ folder within the _gvanno-X.X_ software folder should now have been produced
+    A _data/_ folder within the _gvanno-1.4.2_ software folder should now have been produced
 3. Pull the [gvanno Docker image (1.4.2)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.4Gb):
    * `docker pull sigven/gvanno:1.4.2` (gvanno annotation engine)
 
