@@ -22,7 +22,7 @@ The germline variant annotator (*gvanno*) is a software package intended for ana
 	  * `--vep_regulatory` - annotates variants for overlap with regulatory regions (details below)
 	  * `--docker-uid` - set Docker user id
   * New variant annotations for enhanced non-coding interpretation:
-	  * _REGULATORY_ANNOTATION_ : A comma-separated list of regulatory annotations from VEP's `--regulatory` option, i.e. __TF_binding_site__, __enhancer/promoter/open_chromatin__, __CTCF_binding_site__ etc. Included when the `--vep_regulatory` option is turned on in gvanno.
+	  * _REGULATORY_ANNOTATION_ : A comma-separated list of regulatory annotations from VEP's `--regulatory` option, i.e. __TF_binding_site__, overlap with __enhancer/promoter/open_chromatin__, __CTCF_binding_site__ etc. Included when the `--vep_regulatory` option is turned on in gvanno.
 	  * _NCER_PERCENTILE_: A genome-wide percentile rank score from the ncER algorithm (**n**on-**c**oding **E**ssential **R**egulation), [Wells et al., Nat Comm. (2019)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6868241/).
 
 ### Annotation resources
