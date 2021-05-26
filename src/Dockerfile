@@ -157,6 +157,7 @@ RUN ensembl-vep/travisci/build_c.sh && \
 ENV LC_ALL $LANG_VAR
 ENV LANG $LANG_VAR
 
+
 # Switch back to vep user
 USER vep
 ENV PERL5LIB $PERL5LIB_TMP
