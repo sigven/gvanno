@@ -11,8 +11,8 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.4.2'
-DB_VERSION = 'GVANNO_DB_VERSION = 20210523'
+GVANNO_VERSION = '1.4.3'
+DB_VERSION = 'GVANNO_DB_VERSION = 20210825'
 VEP_VERSION = '104'
 GENCODE_VERSION = '38'
 VEP_ASSEMBLY = "GRCh38"

@@ -165,7 +165,7 @@ ENV PERL5LIB $PERL5LIB_TMP
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
 ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
-RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/103/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
+RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/104/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
 
 
 # Final steps
