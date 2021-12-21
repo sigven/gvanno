@@ -11,10 +11,10 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.4.3'
-DB_VERSION = 'GVANNO_DB_VERSION = 20210825'
-VEP_VERSION = '104'
-GENCODE_VERSION = '38'
+GVANNO_VERSION = '1.4.4'
+DB_VERSION = 'GVANNO_DB_VERSION = 20211221'
+VEP_VERSION = '105'
+GENCODE_VERSION = 'v39'
 VEP_ASSEMBLY = "GRCh38"
 DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
 
@@ -38,6 +38,7 @@ def __main__():
    optional.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator, default: %(default)s")
    optional.add_argument('--docker_uid', dest = 'docker_user_id', help = 'Docker user ID. default is the host system user ID. If you are experiencing permission errors, try setting this up to root (`--docker-uid root`)')
    optional_vep.add_argument('--vep_regulatory', action='store_true', help = 'Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).')
+   optional_vep.add_argument('--vep_gencode_all', action='store_true', help = 'Consider all GENCODE transcripts with Variant Effect Predictor (VEP) (option --gencode_basic in VEP is used by default in gvanno).')
    optional_vep.add_argument('--vep_lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
       "in Variant Effect Predictor (VEP), default: %(default)s")
    optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for Variant Effect Predictor (VEP) processing, default: %(default)s")
@@ -236,7 +237,7 @@ def run_gvanno(arg_dict, host_directories):
 
    global GENCODE_VERSION, VEP_ASSEMBLY
    if arg_dict['genome_assembly'] == 'grch37':
-      GENCODE_VERSION = 'release 19'
+      GENCODE_VERSION = 'v19'
       VEP_ASSEMBLY = 'GRCh37'
 
    logger = getlogger('gvanno-get-OS')
@@ -330,11 +331,16 @@ def run_gvanno(arg_dict, host_directories):
       loftee_dir = '/opt/vep/src/ensembl-vep/modules'
       plugins_in_use = "NearestExonJB"
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
-         "--uniprot --appris --biotype --canonical --gencode_basic --mane --cache --numbers --total_length --allele_number --no_escape " + \
+         "--uniprot --appris --biotype --canonical --format vcf --mane --cache --numbers --total_length --allele_number --no_escape " + \
          "--xref_refseq --plugin NearestExonJB,max_range=50000"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(arg_dict['vep_pick_order']) + \
          " --force_overwrite --species homo_sapiens --assembly " + str(VEP_ASSEMBLY) + " --offline --fork " + \
          str(arg_dict['vep_n_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
+      
+      gencode_set_in_use = "GENCODE - all transcripts"
+      if arg_dict['vep_gencode_all'] == 0:
+         vep_options = vep_options + " --gencode_basic"
+         gencode_set_in_use = "GENCODE - basic transcript set (--gencode_basic)"
       if arg_dict['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
       if arg_dict['vep_regulatory'] == 1:
@@ -356,6 +362,7 @@ def run_gvanno(arg_dict, host_directories):
       logger.info("VEP configuration - one primary consequence block pr. alternative allele (--flack_pick_allele)")
       logger.info("VEP configuration - transcript pick order: " + str(arg_dict['vep_pick_order']))
       logger.info("VEP configuration - transcript pick order: See more at https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick_options")
+      logger.info("VEP configuration - GENCODE set: " + str(gencode_set_in_use))
       logger.info("VEP configuration - buffer size: " + str(arg_dict['vep_buffer_size']))
       logger.info("VEP configuration - skip intergenic: " + str(arg_dict['vep_skip_intergenic']))
       logger.info("VEP configuration - look for overlap with regulatory regions: " + str(arg_dict['vep_regulatory']))
