@@ -34,6 +34,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
 
    ## read VEP and PCGR tags to be appended to VCF file
    vcf_infotags_meta = annoutils.read_infotag_file(os.path.join(gvanno_db_directory,'gvanno_infotags.tsv'))
+   gvanno_xref_map = annoutils.read_genexref_namemap(os.path.join(gvanno_db_directory,'gvanno_xref', 'gvanno_xref.namemap.tsv'))
    out_vcf = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
 
    meta_vep_dbnsfp_info = annoutils.vep_dbnsfp_meta_vcf(query_vcf, vcf_infotags_meta)
@@ -57,36 +58,6 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
-   gvanno_xref_map = {'ENSEMBL_TRANSCRIPT_ID':0, 
-                     'ENSEMBL_GENE_ID':1, 
-                     'ENSEMBL_PROTEIN_ID':2, 
-                     'SYMBOL':3, 
-                     'SYMBOL_ENTREZ':4,
-                     'ENTREZ_ID':5, 
-                     'UNIPROT_ID':6, 
-                     'UNIPROT_ACC':7,
-                     'REFSEQ_MRNA':8, 
-                     'CORUM_ID':9,
-                     'TUMOR_SUPPRESSOR':10,
-                     'TUMOR_SUPPRESSOR_EVIDENCE':11, 
-                     'ONCOGENE':12, 
-                     'ONCOGENE_EVIDENCE':13,
-                     'MIM_PHENOTYPE_ID':14, 
-                     'OPENTARGETS_DISEASE_ASSOCS':15,
-                     'OPENTARGETS_TRACTABILITY_COMPOUND':16, 
-                     'OPENTARGETS_TRACTABILITY_ANTIBODY':17,
-                     'PROB_HAPLOINSUFFICIENCY': 18,
-                     'PROB_EXAC_LOF_INTOLERANT':19,
-                     'PROB_EXAC_LOF_INTOLERANT_HOM':20,
-                     'PROB_EXAC_LOF_TOLERANT_NULL':21,
-                     'PROB_EXAC_NONTCGA_LOF_INTOLERANT':22,
-                     'PROB_EXAC_NONTCGA_LOF_INTOLERANT_HOM':23, 
-                     'PROB_EXAC_NONTCGA_LOF_TOLERANT_NULL': 24,
-                     'PROB_GNOMAD_LOF_INTOLERANT':25, 
-                     'PROB_GNOMAD_LOF_INTOLERANT_HOM': 26, 
-                     'PROB_GNOMAD_LOF_TOLERANT_NULL':27,
-                     'ESSENTIAL_GENE_CRISPR': 28, 
-                     'ESSENTIAL_GENE_CRISPR2': 29}
    
    vcf_info_element_types = {}
    for e in vcf.header_iter():

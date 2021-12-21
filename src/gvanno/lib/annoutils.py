@@ -12,6 +12,18 @@ csv.field_size_limit(500 * 1024 * 1024)
 threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','Glu':'E','Gln':'Q','Gly':'G','His':'H','Ile':'I','Leu':'L','Lys':'K', 'Met':'M','Phe':'F','Pro':'P','Ser':'S','Thr':'T','Trp':'W','Tyr':'Y','Val':'V','Ter':'X'}
 
 
+
+def read_genexref_namemap(gene_xref_namemap_tsv):
+   namemap_xref = {} ##dictionary returned
+   if not os.path.exists(gene_xref_namemap_tsv):
+      return namemap_xref
+   tsvfile = open(gene_xref_namemap_tsv, 'r')
+   reader = csv.DictReader(tsvfile, delimiter='\t')
+   for row in reader:
+      namemap_xref[row['name']] = int(row['index'])
+
+   return namemap_xref
+
 def read_infotag_file(vcf_info_tags_tsv):
    """
    Function that reads a file that lists VCF INFO tags produced by PCGR/CPSR/gvanno.
