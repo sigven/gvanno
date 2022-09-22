@@ -33,8 +33,8 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
    """
 
    ## read VEP and PCGR tags to be appended to VCF file
-   vcf_infotags_meta = annoutils.read_infotag_file(os.path.join(gvanno_db_directory,'gvanno_infotags.tsv'))
-   gvanno_xref_map = annoutils.read_genexref_namemap(os.path.join(gvanno_db_directory,'gvanno_xref', 'gvanno_xref.namemap.tsv'))
+   vcf_infotags_meta = annoutils.read_infotag_file(logger, os.path.join(gvanno_db_directory,'gvanno_infotags.tsv'))
+   gvanno_xref_map = annoutils.read_genexref_namemap(logger, os.path.join(gvanno_db_directory,'gvanno_xref', 'gvanno_xref_namemap.tsv'))
    out_vcf = re.sub(r'\.vcf(\.gz){0,}$','.annotated.vcf',query_vcf)
 
    meta_vep_dbnsfp_info = annoutils.vep_dbnsfp_meta_vcf(query_vcf, vcf_infotags_meta)

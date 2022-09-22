@@ -4,5 +4,5 @@ cp /Users/sigven/research/software/vcf2tsv/vcf2tsv.py gvanno/
 tar czvfh gvanno.tgz gvanno/
 echo "Build the Docker Image"
 TAG=`date "+%Y%m%d"`
-docker build --no-cache -t sigven/gvanno:$TAG --rm=true .
+docker build -t sigven/gvanno:$TAG --rm=true .
 

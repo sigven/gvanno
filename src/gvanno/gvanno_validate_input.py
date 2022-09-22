@@ -34,7 +34,7 @@ def check_existing_vcf_info_tags(input_vcf, gvanno_directory, genome_assembly, l
    If any coinciding tags, an error will be returned
    """
    
-   gvanno_infotags_desc = annoutils.read_infotag_file(os.path.join(gvanno_directory,'data',genome_assembly,'gvanno_infotags.tsv'))
+   gvanno_infotags_desc = annoutils.read_infotag_file(logger, os.path.join(gvanno_directory,'data',genome_assembly,'gvanno_infotags.tsv'))
          
    vcf = VCF(input_vcf)
    logger.info('Checking if existing INFO tags of query VCF file coincide with gvanno INFO tags')

@@ -13,10 +13,12 @@ threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','G
 
 
 
-def read_genexref_namemap(gene_xref_namemap_tsv):
+def read_genexref_namemap(logger, gene_xref_namemap_tsv):
    namemap_xref = {} ##dictionary returned
    if not os.path.exists(gene_xref_namemap_tsv):
-      return namemap_xref
+      logger.info("ERROR: File '" + str(gene_xref_namemap_tsv) + "' does not exist - exiting")
+      exit(1)
+      #return namemap_xref
    tsvfile = open(gene_xref_namemap_tsv, 'r')
    reader = csv.DictReader(tsvfile, delimiter='\t')
    for row in reader:
@@ -24,7 +26,7 @@ def read_genexref_namemap(gene_xref_namemap_tsv):
 
    return namemap_xref
 
-def read_infotag_file(vcf_info_tags_tsv):
+def read_infotag_file(logger, vcf_info_tags_tsv):
    """
    Function that reads a file that lists VCF INFO tags produced by PCGR/CPSR/gvanno.
    An example line of the VCF info tag file is the following:
@@ -36,6 +38,7 @@ def read_infotag_file(vcf_info_tags_tsv):
    """
    info_tag_xref = {} ##dictionary returned
    if not os.path.exists(vcf_info_tags_tsv):
+      logger.info("ERROR: File '" + str(vcf_info_tags_tsv) + "' does not exist - exiting")
       return info_tag_xref
    tsvfile = open(vcf_info_tags_tsv, 'r')
    reader = csv.DictReader(tsvfile, delimiter='\t')
@@ -629,7 +632,7 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
 
    all_csq_pick = []
    all_transcript_consequences = []
-
+   
    for csq in rec.INFO.get(csq_identifier).split(','):
       csq_fields =  csq.split('|')
 
@@ -654,15 +657,19 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
             while(j < len(csq_fields)):
                if j in vep_csq_fields_map['index2field']:
                   if csq_fields[j] != '':
-                     #print(str(vep_csq_fields_map['index2field'][j]) + '\t' + str(csq_fields[j]))
                      csq_record[vep_csq_fields_map['index2field'][j]] = str(csq_fields[j])
                      if vep_csq_fields_map['index2field'][j] == 'Feature':
                         ensembl_transcript_id = str(csq_fields[j])
                         if ensembl_transcript_id in transcript_xref_map:
                            for annotation in transcript_xref_map[ensembl_transcript_id].keys():
                               if annotation != 'SYMBOL':
-                                 ## assign additional gene/transcript annotations from the custom transcript xref map (PCGR/CPSR) as key,value pairs in the csq_record object
+                                 ## assign additional gene/transcript annotations from the custom transcript 
+                                 ## xref map (PCGR/CPSR/gvanno) as key,value pairs in the csq_record object
                                  csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
+                              else:
+                                 ## If not VEP provides SYMBOL, append SYMBOL provided by xref map
+                                 if csq_record['SYMBOL'] is None:
+                                     csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
                         else:
                            if re.match(r'ENST', ensembl_transcript_id):
                               logger.warning('Could not find transcript xrefs for ' + str(ensembl_transcript_id))
@@ -698,13 +705,20 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
             ## Assign coding status, protein change, coding sequence change, last exon/intron status etc
             assign_cds_exon_intron_annotations(csq_record)
             ## Append transcript consequence to all_csq_pick
-            #print(csq_record)
             all_csq_pick.append(csq_record)
          symbol = '.'
+         hgvsc = ".:."
+         hgvsp = ".:."
          if csq_fields[vep_csq_fields_map['field2index']['SYMBOL']] != "":
             symbol = str(csq_fields[vep_csq_fields_map['field2index']['SYMBOL']])
+         if csq_fields[vep_csq_fields_map['field2index']['HGVSc']] != "":
+            hgvsc = str(csq_fields[vep_csq_fields_map['field2index']['HGVSc']])
+         if csq_fields[vep_csq_fields_map['field2index']['HGVSp']] != "":
+            hgvsp = str(csq_fields[vep_csq_fields_map['field2index']['HGVSp']])
          consequence_entry = (str(csq_fields[vep_csq_fields_map['field2index']['Consequence']]) + ':' +  
             str(symbol) + ':' + 
+            str(hgvsc) + ':' + 
+            str(hgvsp) + ':' + 
             str(csq_fields[vep_csq_fields_map['field2index']['Feature_type']]) + ':' + 
             str(csq_fields[vep_csq_fields_map['field2index']['Feature']]) + ':' + 
             str(csq_fields[vep_csq_fields_map['field2index']['BIOTYPE']]))
