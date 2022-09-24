@@ -15,34 +15,29 @@ The germline variant annotator (*gvanno*) is a software package intended for ana
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record __per sample variant__.
 
 ### News
+* September 24th 2022 - **1.5.0 release**
+  * Data updates: ClinVar, GENCODE GWAS catalog, CancerMine, Open Targets Platform
+  * Software updates: VEP 107
+  * Excluded UniProt KB from annotation tracks
 * December 21st 2021 - **1.4.4 release**
      * Data updates: ClinVar, GWAS catalog, CancerMine, UniProt KB, Open Targets Platform
 	* Software updates: VEP (v105)
 * August 25th 2021 - **1.4.3 release**
 	* Data updates: ClinVar, GWAS catalog, CancerMine, UniProt, Open Targets Platform
-* May 24th 2021 - **1.4.2 release**
-  * Software update (VEP 104)
-  * Data updates: ClinVar, GWAS catalog, CancerMine, Pfam, dbNSFP, UniProt
-  * Two new options added:
-	  * `--vep_regulatory` - annotates variants for overlap with regulatory regions (details below)
-	  * `--docker-uid` - set Docker user id
-  * New variant annotations for enhanced non-coding interpretation:
-	  * _REGULATORY_ANNOTATION_ : A comma-separated list of regulatory annotations from VEP's `--regulatory` option, i.e. __TF_binding_site__, overlap with __enhancer/promoter/open_chromatin__, __CTCF_binding_site__ etc. Included when the `--vep_regulatory` option is turned on in gvanno.
-	  * _NCER_PERCENTILE_: A genome-wide percentile rank score from the ncER algorithm (**n**on-**c**oding **E**ssential **R**egulation), [Wells et al., Nat Comm. (2019)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6868241/).
 
-### Annotation resources (v1.4.4)
+### Annotation resources (v1.5.0)
 
-* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v105 (GENCODE v39/v19 as the gene reference dataset)
+* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v107 (GENCODE v41/v19 as the gene reference dataset)
 * [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.2, March 2021)
 * [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
 * [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 154) - from VEP
 * [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013) - from VEP
-* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (December 2021)
-* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 41, December 2021)
-* [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2021_11, Nocember 2021)
-* [UniProt/SwissProt KnowledgeBase](http://www.uniprot.org) - Resource on protein sequence and functional information (2021_04, November 2021)
+* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (September 2022)
+* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 47, July 2022)
+* [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2022_06, June 2022)
 * [Pfam](http://pfam.xfam.org) - Database of protein families and domains (v35.0, November 2021)
-* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (December 7th 2021)
+* [Mutation hotspots](cancerhotspots.org) - Database of mutation hotspots in cancer
+* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (August 26th 2022)
 
 
 ### Getting started
@@ -76,17 +71,17 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1. [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.4.4) (gvanno run script, v1.4.4)
+1. [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.5.0) (gvanno run script, v1.5.0)
 2. Download (preferably using `wget`) and unpack the latest assembly-specific data bundle in the gvanno directory
-   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20211221.tgz) (approx 18Gb)
-   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20211221.tgz) (approx 20Gb)
+   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20220921.tgz) (approx 20Gb)
+   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20220921.tgz) (approx 28Gb)
    * Example commands:
-	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20211221.tgz`
+	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20220921.tgz`
 	* `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
-    A _data/_ folder within the _gvanno-1.4.4_ software folder should now have been produced
-3. Pull the [gvanno Docker image (1.4.4)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.2Gb):
-   * `docker pull sigven/gvanno:1.4.4` (gvanno annotation engine)
+    A _data/_ folder within the _gvanno-1.5.0_ software folder should now have been produced
+3. Pull the [gvanno Docker image (1.5.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 2.2Gb):
+   * `docker pull sigven/gvanno:1.5.0` (gvanno annotation engine)
 
 #### STEP 3: Input preprocessing
 
@@ -115,7 +110,7 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 	--query_vcf QUERY_VCF
 				    VCF input file with germline query variants (SNVs/InDels).
 	--gvanno_dir GVANNO_DIR
-				    Directory that contains the gvanno data bundle, e.g. ~/gvanno-1.4.4
+				    Directory that contains the gvanno data bundle, e.g. ~/gvanno-1.5.0
 	--output_dir OUTPUT_DIR
 				    Output directory
 	--genome_assembly {grch37,grch38}
@@ -152,10 +147,10 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 
 The _examples_ folder contains an example VCF file. Analysis of the example VCF can be performed by the following command:
 
-	python ~/gvanno-1.4.4/gvanno.py
-	--query_vcf ~/gvanno-1.4.4/examples/example.grch37.vcf.gz
-	--gvanno_dir ~/gvanno-1.4.4
-	--output_dir ~/gvanno-1.4.4
+	python ~/gvanno-1.5.0/gvanno.py
+	--query_vcf ~/gvanno-1.5.0/examples/example.grch37.vcf.gz
+	--gvanno_dir ~/gvanno-1.5.0
+	--output_dir ~/gvanno-1.5.0
 	--sample_id example
 	--genome_assembly grch37
 	--container docker

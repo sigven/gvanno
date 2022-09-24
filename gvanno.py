@@ -11,10 +11,10 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.4.4'
-DB_VERSION = 'GVANNO_DB_VERSION = 20211221'
-VEP_VERSION = '105'
-GENCODE_VERSION = 'v39'
+GVANNO_VERSION = '1.5.0'
+DB_VERSION = 'GVANNO_DB_VERSION = 20220921'
+VEP_VERSION = '107'
+GENCODE_VERSION = 'v41'
 VEP_ASSEMBLY = "GRCh38"
 DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
 
@@ -294,6 +294,9 @@ def run_gvanno(arg_dict, host_directories):
       container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.sif' + " sh -c \""
       docker_command_run_end = '\"'
 
+   #logger.info(container_command_run1)
+   #logger.info(container_command_run2)
+
    ## GVANNO|start - Log key information about sample, options and assembly
    logger = getlogger("gvanno-start")
    logger.info("--- Germline variant annotation (gvanno) workflow ----")
@@ -306,6 +309,7 @@ def run_gvanno(arg_dict, host_directories):
    logger.info("STEP 0: Validate input data")
    vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + \
       str(vcf_validation) + " "  + str(arg_dict['genome_assembly']) + docker_command_run_end
+   #logger.info(vcf_validate_command)
 
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
@@ -378,10 +382,10 @@ def run_gvanno(arg_dict, host_directories):
       ## GVANNO|vcfanno - annotate VCF against a number of variant annotation resources
       print()
       logger = getlogger('gvanno-vcfanno')
-      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, ncER, dbNSFP, GWAS catalog, UniProtKB, cancerhotspots.org)")
+      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, ncER, dbNSFP, GWAS catalog, cancerhotspots.org)")
       logger.info('vcfanno configuration - number of processes (-p): ' + str(arg_dict['vcfanno_n_processes']))
       gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(arg_dict['vcfanno_n_processes']) + \
-         " --dbnsfp --clinvar --ncer --uniprot --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
+         " --dbnsfp --clinvar --ncer --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
          " " + os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + docker_command_run_end
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
@@ -412,7 +416,7 @@ def run_gvanno(arg_dict, host_directories):
       print()
       ## GVANNO|vcf2tsv - convert VCF to TSV with https://github.com/sigven/vcf2tsv
       logger = getlogger("gvanno-vcf2tsv")
-      logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsv")
+      logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsvpy")
       gvanno_vcf2tsv_command_pass = str(container_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
       gvanno_vcf2tsv_command_all = str(container_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS variants only")

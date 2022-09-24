@@ -22,7 +22,7 @@ RUN apt-get update && apt-get -y install \
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV BRANCH release/105
+ENV BRANCH release/107
 
 # Working directory
 WORKDIR $OPT_SRC
@@ -166,7 +166,7 @@ ENV PERL5LIB $PERL5LIB_TMP
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
 ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
-RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/105/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
+RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/107/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
 
 
 # Final steps
@@ -250,7 +250,9 @@ RUN rm miniconda.sh
 
 # update conda & install vt
 RUN /conda/bin/conda update conda
+#RUN /conda/bin/conda update python
 RUN /conda/bin/conda install -c bioconda vt
+#RUN /conda/bin/conda install -c bioconda vcf2tsvpy
 
 ## Clean Up
 RUN apt-get clean autoclean
@@ -271,7 +273,7 @@ RUN rm -rf $HOME/src/ensembl-vep/t/
 RUN rm -f $HOME/src/v335_base.tar.gz
 RUN rm -f $HOME/src/release-1-6-924.zip
 RUN rm -rf /samtools-1.10.tar.bz2
-RUN rm -f /conda/bin/python
+#RUN rm -f /conda/bin/python
 
 ADD gvanno.tgz /
 ENV PATH=$PATH:/conda/bin:/gvanno
