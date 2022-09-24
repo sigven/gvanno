@@ -15,20 +15,15 @@ The germline variant annotator (*gvanno*) is a software package intended for ana
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record __per sample variant__.
 
 ### News
+* September 24th 2022 - **1.5.0 release**
+  * Data updates: ClinVar, GENCODE GWAS catalog, CancerMine, Open Targets Platform
+  * Software updates: VEP 107
+  * Excluded UniProt KB from annotation tracks
 * December 21st 2021 - **1.4.4 release**
      * Data updates: ClinVar, GWAS catalog, CancerMine, UniProt KB, Open Targets Platform
 	* Software updates: VEP (v105)
 * August 25th 2021 - **1.4.3 release**
 	* Data updates: ClinVar, GWAS catalog, CancerMine, UniProt, Open Targets Platform
-* May 24th 2021 - **1.4.2 release**
-  * Software update (VEP 104)
-  * Data updates: ClinVar, GWAS catalog, CancerMine, Pfam, dbNSFP, UniProt
-  * Two new options added:
-	  * `--vep_regulatory` - annotates variants for overlap with regulatory regions (details below)
-	  * `--docker-uid` - set Docker user id
-  * New variant annotations for enhanced non-coding interpretation:
-	  * _REGULATORY_ANNOTATION_ : A comma-separated list of regulatory annotations from VEP's `--regulatory` option, i.e. __TF_binding_site__, overlap with __enhancer/promoter/open_chromatin__, __CTCF_binding_site__ etc. Included when the `--vep_regulatory` option is turned on in gvanno.
-	  * _NCER_PERCENTILE_: A genome-wide percentile rank score from the ncER algorithm (**n**on-**c**oding **E**ssential **R**egulation), [Wells et al., Nat Comm. (2019)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6868241/).
 
 ### Annotation resources (v1.5.0)
 
@@ -78,10 +73,10 @@ An installation of Python (version >=_3.6_) is required to run *gvanno*. Check t
 
 1. [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.5.0) (gvanno run script, v1.5.0)
 2. Download (preferably using `wget`) and unpack the latest assembly-specific data bundle in the gvanno directory
-   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20211221.tgz) (approx 18Gb)
-   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20211221.tgz) (approx 20Gb)
+   * [grch37 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20220921.tgz) (approx 20Gb)
+   * [grch38 data bundle](http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch38.20220921.tgz) (approx 28Gb)
    * Example commands:
-	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20211221.tgz`
+	* `wget http://insilico.hpc.uio.no/pcgr/gvanno/gvanno.databundle.grch37.20220921.tgz`
 	* `gzip -dc gvanno.databundle.grch37.YYYYMMDD.tgz | tar xvf -`
 
     A _data/_ folder within the _gvanno-1.5.0_ software folder should now have been produced

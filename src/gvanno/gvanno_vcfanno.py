@@ -47,7 +47,7 @@ def run_vcfanno(num_processes, query_vcf, vcfanno_conf_fname, query_info_tags, v
    """
    clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_UMLS_CUI","CLINVAR_HGVSP",
                         "CLINVAR_UMLS_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_MOLECULAR_EFFECT",
-                        "CLINVAR_REVIEW_STATUS_STARS"]
+                        "CLINVAR_REVIEW_STATUS_STARS","CLINVAR_CLASSIFICATION"]
    dbnsfp_info_tags = ["DBNSFP"]
    gvanno_xref_info_tags = ["GVANNO_XREF"]
    gwas_info_tags = ["GWAS_HIT"]
