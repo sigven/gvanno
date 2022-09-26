@@ -136,6 +136,8 @@ Run the workflow with **gvanno.py**, which takes the following arguments and opt
 				    Variant Effect Predictor (VEP) processing, default: canonical,appris,biotype,ccds,rank,tsl,length,mane
 	--vep_skip_intergenic
 				    Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: False
+	--vep_coding_only
+	          Only report variants falling into coding regions of transcripts (VEP), default: False
 
 	Other optional arguments:
 	--force_overwrite     By default, the script will fail with an error if any output file already exists.
