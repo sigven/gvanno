@@ -58,6 +58,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
    w = Writer(out_vcf, vcf)
    current_chrom = None
    num_chromosome_records_processed = 0
+   num_records_filtered = 0
    
    vcf_info_element_types = {}
    for e in vcf.header_iter():
@@ -77,10 +78,11 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
             current_chrom = str(rec.CHROM)
             num_chromosome_records_processed = 0
       if rec.INFO.get('CSQ') is None:
-         alt_allele = ','.join(rec.ALT)
-         pos = rec.start + 1
-         variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
-         logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (vep_skip_intergenic in config set to true?)  - variant will be skipped')
+         num_records_filtered = num_records_filtered + 1
+         #alt_allele = ','.join(rec.ALT)
+         #pos = rec.start + 1
+         #variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
+         #logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (--vep_skip_intergenic or --vep_coding_only turned ON?)  - variant will be skipped')
          continue
       num_chromosome_records_processed += 1
       gvanno_xref = annoutils.make_transcript_xref_map(rec, gvanno_xref_map, xref_tag = "GVANNO_XREF")
@@ -116,6 +118,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
    w.close()
    logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))
    vcf.close()
+   logger.info("Number of variant calls filtered by VEP (No CSQ tag, '--vep_coding_only' / '--vep_skip_intergenic'): " + str(num_records_filtered))
 
    if os.path.exists(out_vcf):
       if os.path.getsize(out_vcf) > 0:
