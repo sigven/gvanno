@@ -11,7 +11,7 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.5.0'
+GVANNO_VERSION = '1.5.1'
 DB_VERSION = 'GVANNO_DB_VERSION = 20220921'
 VEP_VERSION = '107'
 GENCODE_VERSION = 'v41'
@@ -37,16 +37,17 @@ def __main__():
    optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
    optional.add_argument('--no_vcf_validate', action = "store_true",help="Skip validation of input VCF with Ensembl's vcf-validator, default: %(default)s")
    optional.add_argument('--docker_uid', dest = 'docker_user_id', help = 'Docker user ID. default is the host system user ID. If you are experiencing permission errors, try setting this up to root (`--docker-uid root`)')
-   optional_vep.add_argument('--vep_regulatory', action='store_true', help = 'Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).')
-   optional_vep.add_argument('--vep_gencode_all', action='store_true', help = 'Consider all GENCODE transcripts with Variant Effect Predictor (VEP) (option --gencode_basic in VEP is used by default in gvanno).')
+   optional_vep.add_argument('--vep_regulatory', action='store_true', help = 'Enable VEP to look for overlap with regulatory regions (option --regulatory in VEP).')
+   optional_vep.add_argument('--vep_gencode_all', action='store_true', help = 'Consider all GENCODE transcripts with VEP (option --gencode_basic in VEP is used by default in gvanno).')
    optional_vep.add_argument('--vep_lof_prediction', action = "store_true", help = "Predict loss-of-function variants with Loftee plugin " + \
-      "in Variant Effect Predictor (VEP), default: %(default)s")
-   optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for Variant Effect Predictor (VEP) processing, default: %(default)s")
+      "in VEP, default: %(default)s")
+   optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for VEP processing, default: %(default)s")
    optional_vep.add_argument('--vep_buffer_size', default = 500, help="Variant buffer size (variants read into memory simultaneously) " + \
-      "for Variant Effect Predictor (VEP) processing\n- set lower to reduce memory usage, higher to increase speed, default: %(default)s")
+      "for VEP processing\n- set lower to reduce memory usage, higher to increase speed, default: %(default)s")
    optional_vep.add_argument('--vep_pick_order', default = "canonical,appris,biotype,ccds,rank,tsl,length,mane", help="Comma-separated string " + \
-      "of ordered transcript properties for primary variant pick in\nVariant Effect Predictor (VEP) processing, default: %(default)s")
-   optional_vep.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: %(default)s")
+      "of ordered transcript properties for primary variant pick in\nVEP processing, default: %(default)s")
+   optional_vep.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants (VEP), default: %(default)s")
+   optional_vep.add_argument('--vep_coding_only', action = "store_true", help="Only return consequences that fall in the coding regions of transcripts (VEP), default: %(default)s")
    optional.add_argument('--vcfanno_n_processes', default = 4, help="Number of processes for vcfanno " + \
       "processing (see https://github.com/brentp/vcfanno#-p), default: %(default)s")
    required.add_argument('--query_vcf', help='VCF input file with germline query variants (SNVs/InDels).', required = True)
@@ -347,6 +348,8 @@ def run_gvanno(arg_dict, host_directories):
          gencode_set_in_use = "GENCODE - basic transcript set (--gencode_basic)"
       if arg_dict['vep_skip_intergenic'] == 1:
          vep_options = vep_options + " --no_intergenic"
+      if arg_dict['vep_coding_only'] == 1:
+         vep_options = vep_options + " --coding_only"
       if arg_dict['vep_regulatory'] == 1:
          vep_options = vep_options + " --regulatory"
       if arg_dict['vep_lof_prediction'] == 1:
@@ -362,13 +365,14 @@ def run_gvanno(arg_dict, host_directories):
       ## GVANNO|VEP - run consequence annotation with Variant Effect Predictor
       logger = getlogger('gvanno-vep')   
       print()
-      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (" + str(VEP_VERSION) + ", GENCODE " + str(GENCODE_VERSION) + ", " + str(arg_dict['genome_assembly']) + ")")
-      logger.info("VEP configuration - one primary consequence block pr. alternative allele (--flack_pick_allele)")
+      logger.info("STEP 1: Basic variant annotation with Variant Effect Predictor (v" + str(VEP_VERSION) + ", GENCODE " + str(GENCODE_VERSION) + ", " + str(arg_dict['genome_assembly']) + ")")
+      logger.info("VEP configuration - one primary consequence block pr. alternative allele (--flag_pick_allele)")
       logger.info("VEP configuration - transcript pick order: " + str(arg_dict['vep_pick_order']))
       logger.info("VEP configuration - transcript pick order: See more at https://www.ensembl.org/info/docs/tools/vep/script/vep_other.html#pick_options")
       logger.info("VEP configuration - GENCODE set: " + str(gencode_set_in_use))
       logger.info("VEP configuration - buffer size: " + str(arg_dict['vep_buffer_size']))
       logger.info("VEP configuration - skip intergenic: " + str(arg_dict['vep_skip_intergenic']))
+      logger.info("VEP configuration - coding only: " + str(arg_dict['vep_coding_only']))
       logger.info("VEP configuration - look for overlap with regulatory regions: " + str(arg_dict['vep_regulatory']))
       logger.info("VEP configuration - number of forks: " + str(arg_dict['vep_n_forks']))
       logger.info("VEP configuration - loss-of-function prediction: " + str(arg_dict['vep_lof_prediction']))
