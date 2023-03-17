@@ -1,3 +1,4 @@
+
 ###################################################
 # Stage 1 - docker container to build ensembl-vep #
 ###################################################
@@ -22,13 +23,13 @@ RUN apt-get update && apt-get -y install \
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV BRANCH release/107
+ENV BRANCH=release/109
 
 # Working directory
 WORKDIR $OPT_SRC
 
 # Clone/download repositories/libraries
-RUN if [ "$BRANCH" = "master" ]; \
+RUN if [ "$BRANCH" = "main" ]; \
     then export BRANCH_OPT=""; \
     else export BRANCH_OPT="-b $BRANCH"; \
     fi && \
@@ -166,7 +167,8 @@ ENV PERL5LIB $PERL5LIB_TMP
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
 ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
-RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/release/107/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
+ADD NearestExonJB.pm $OPT/src/ensembl-vep/modules
+#RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/$BRANCH/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
 
 
 # Final steps
@@ -177,6 +179,24 @@ RUN echo >> $OPT/.profile && \
     echo export PATH >> $OPT/.profile && \
     # Run INSTALL.pl and remove the ensemb-vep tests and travis
     ./INSTALL.pl -a a -l -n && rm -rf t travisci .travis.yml
+
+
+# Install dependencies for VEP plugins:
+#USER root
+#ENV PLUGIN_DEPS "https://raw.githubusercontent.com/Ensembl/VEP_plugins/$BRANCH/config"
+##   - Ubuntu packages
+#RUN curl -O "$PLUGIN_DEPS/ubuntu-packages.txt" && \
+#    apt-get update && apt-get install -y --no-install-recommends \
+#    $(sed s/\#.*//g ubuntu-packages.txt) && \
+#    rm -rf /var/lib/apt/lists/* ubuntu-packages.txt
+##   - Perl modules
+#RUN curl -O "$PLUGIN_DEPS/cpanfile" && \
+#    cpanm --installdeps --with-recommends . && \
+#    rm -rf /root/.cpanm cpanfile
+##   - Python packages
+#RUN curl -O "$PLUGIN_DEPS/requirements.txt" && \
+#    python -m pip install --no-cache-dir -r requirements.txt && \
+#    rm requirements.txt
 
 ######################################################
 # Stage 3 - adding dependencies for gvanno analysis  #
@@ -200,7 +220,6 @@ WORKDIR /
 
 ENV PACKAGE_BIO="libhts2 bedtools"
 ENV PACKAGE_DEV="gfortran gcc-multilib autoconf liblzma-dev libncurses5-dev libblas-dev liblapack-dev libssh2-1-dev libxml2-dev vim libssl-dev libcairo2-dev libbz2-dev libcurl4-openssl-dev"
-#ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9 toml==0.10.1"
 ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9"
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
@@ -224,9 +243,9 @@ chmod 755 /usr/local/bin/vcf_validator
 USER root
 WORKDIR /
 
-RUN wget https://github.com/samtools/samtools/releases/download/1.10/samtools-1.10.tar.bz2
-RUN bunzip2 -dc samtools-1.10.tar.bz2 | tar xvf -
-RUN cd samtools-1.10 && ./configure --prefix=/usr/local/bin && make -j && make install
+RUN wget https://github.com/samtools/samtools/releases/download/1.15.1/samtools-1.15.1.tar.bz2
+RUN bunzip2 -dc samtools-1.15.1.tar.bz2 | tar xvf -
+RUN cd samtools-1.15.1 && ./configure --prefix=/usr/local && make -j && make install
 
 WORKDIR /
 
@@ -241,18 +260,19 @@ RUN apt-get update \
 USER root
 WORKDIR /
 
-## vt - variant tool set - use conda version
-## primary use in GVANNO/PCGR/CPSR: decomposition of multiallelic variants in a VCF file
+## vt - variant tool set + vcf2tsvpy - install using Conda
+## primary use of vt in GVANNO: decomposition of multiallelic variants in a VCF file
+
+# install Conda
 RUN wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh \
     && chmod 0755 miniconda.sh
 RUN ["/bin/bash", "-c", "/miniconda.sh -b -p /conda"]
 RUN rm miniconda.sh
 
-# update conda & install vt
+# update conda & install vt + vcf2tsvpy
 RUN /conda/bin/conda update conda
-#RUN /conda/bin/conda update python
-RUN /conda/bin/conda install -c bioconda vt
-#RUN /conda/bin/conda install -c bioconda vcf2tsvpy
+RUN /conda/bin/conda update python
+RUN /conda/bin/conda install -c bioconda vt vcf2tsvpy python=3.6
 
 ## Clean Up
 RUN apt-get clean autoclean
@@ -268,12 +288,10 @@ VOLUME /data
 
 USER root
 WORKDIR /
-#RUN rm -f nlopt-2.4.2.tar.gz
 RUN rm -rf $HOME/src/ensembl-vep/t/
 RUN rm -f $HOME/src/v335_base.tar.gz
 RUN rm -f $HOME/src/release-1-6-924.zip
-RUN rm -rf /samtools-1.10.tar.bz2
-#RUN rm -f /conda/bin/python
+RUN rm -rf /samtools-1.15.1*
 
 ADD gvanno.tgz /
 ENV PATH=$PATH:/conda/bin:/gvanno

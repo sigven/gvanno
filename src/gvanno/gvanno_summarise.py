@@ -7,6 +7,7 @@ from cyvcf2 import VCF, Writer
 import gzip
 import os
 import annoutils
+import oncogenicity
 
 logger = annoutils.getlogger('gvanno-gene-annotate')
 csv.field_size_limit(500 * 1024 * 1024)
@@ -18,17 +19,18 @@ def __main__():
    parser.add_argument('vcf_file', help='VCF file with VEP-annotated query variants (SNVs/InDels)')
    parser.add_argument('gvanno_db_dir',help='gvanno data directory')
    parser.add_argument('lof_prediction',default=0,type=int,help='VEP LoF prediction setting (0/1)')
+   parser.add_argument('oncogenicity_annotation',default=0,type=int,help='Include oncogenicity annotation (0/1)')
    parser.add_argument('regulatory_annotation',default=0,type=int,help='Inclusion of VEP regulatory annotations (0/1)')
    args = parser.parse_args()
 
-   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction, args.regulatory_annotation)
+   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction, args.oncogenicity_annotation, args.regulatory_annotation)
 
-def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, regulatory_annotation = 0):
+def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, oncogenicity_annotation = 0, regulatory_annotation = 0):
    """
    Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
    1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
-   2. Gene annotations, e.g. known oncogenes/tumor suppressors, curated disease associations (DisGenet), MIM phenotype associations etc
-   3. Protein-relevant annotations, e.g. c functional protein features etc.
+   2. Gene annotations, e.g. known oncogenes/tumor suppressors
+   3. Cancer hotspot mutation sites
    4. Variant effect predictions
    """
 
@@ -59,6 +61,8 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
    current_chrom = None
    num_chromosome_records_processed = 0
    num_records_filtered = 0
+
+   cancer_hotspots = annoutils.read_cancer_hotspots(logger, os.path.join(gvanno_db_directory,'cancer_hotspots', 'cancer_hotspots.tsv'))
    
    vcf_info_element_types = {}
    for e in vcf.header_iter():
@@ -79,9 +83,6 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
             num_chromosome_records_processed = 0
       if rec.INFO.get('CSQ') is None:
          num_records_filtered = num_records_filtered + 1
-         #alt_allele = ','.join(rec.ALT)
-         #pos = rec.start + 1
-         #variant_id = 'g.' + str(rec.CHROM) + ':' + str(pos) + str(rec.REF) + '>' + alt_allele
          #logger.warning('Variant record ' + str(variant_id) + ' does not have CSQ tag from Variant Effect Predictor (--vep_skip_intergenic or --vep_coding_only turned ON?)  - variant will be skipped')
          continue
       num_chromosome_records_processed += 1
@@ -90,30 +91,44 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, r
       if regulatory_annotation == 1:
          csq_record_results_all = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = False, csq_identifier = 'CSQ')
 
-         if 'vep_block' in csq_record_results_all:
-            vep_csq_records_all = csq_record_results_all['vep_block']
+         if 'picked_gene_csq' in csq_record_results_all:
+            vep_csq_records_all = csq_record_results_all['picked_gene_csq']
             rec.INFO['REGULATORY_ANNOTATION'] = annoutils.map_regulatory_variant_annotations(vep_csq_records_all)
 
-      csq_record_results_pick = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
+      vep_csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
 
-      if 'vep_all_csq' in csq_record_results_pick:
-         rec.INFO['VEP_ALL_CSQ'] = ','.join(csq_record_results_pick['vep_all_csq'])
-      if 'vep_block' in csq_record_results_pick:
-         vep_csq_records = csq_record_results_pick['vep_block']
-
-         block_idx = 0
-         record = vep_csq_records[block_idx]
-         for k in record:
+      
+      principal_hgvsp = '.'
+      principal_hgvsc = '.'
+      if 'picked_csq' in vep_csq_record_results:
+         csq_record = vep_csq_record_results['picked_csq']
+         for k in csq_record:
             if k in vcf_info_element_types:
-               if vcf_info_element_types[k] == "Flag" and record[k] == "1":
-                  rec.INFO[k] = True
+               if vcf_info_element_types[k] == "Flag":
+                  #rec.INFO[k] = False
+                  if csq_record[k] == "1":
+                     rec.INFO[k] = True                                
                else:
-                  if not record[k] is None:
-                     rec.INFO[k] = record[k]
+                  if not csq_record[k] is None:
+                     rec.INFO[k] = csq_record[k]
+
+                     if k == 'HGVSp_short':
+                        principal_hgvsp = csq_record[k]
+                     
+                     if k == 'HGVSc':
+                        principal_hgvsc = csq_record[k].split(':')[1]
+            #else:
+            #   print("missing\t" + str(k))
+
+      if 'all_csq' in vep_csq_record_results:
+         rec.INFO['VEP_ALL_CSQ'] = ','.join(vep_csq_record_results['all_csq'])
+         annoutils.map_cancer_hotspots(vep_csq_record_results['all_csq'], cancer_hotspots, rec, principal_hgvsp, principal_hgvsc)
 
       if not rec.INFO.get('DBNSFP') is None:
          annoutils.map_variant_effect_predictors(rec, dbnsfp_prediction_algorithms)
 
+      if oncogenicity_annotation == 1:
+         oncogenicity.assign_oncogenicity_evidence(rec, tumortype = "Any")
       w.write_record(rec)
    w.close()
    logger.info('Completed summary of functional annotations for ' + str(num_chromosome_records_processed) + ' variants on chromosome ' + str(current_chrom))

@@ -11,17 +11,17 @@ import getpass
 import platform
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.5.1'
-DB_VERSION = 'GVANNO_DB_VERSION = 20220921'
-VEP_VERSION = '107'
-GENCODE_VERSION = 'v41'
+GVANNO_VERSION = '1.6.0'
+DB_VERSION = 'GVANNO_DB_VERSION = 20230310'
+VEP_VERSION = '109'
+GENCODE_VERSION = 'v43'
 VEP_ASSEMBLY = "GRCh38"
 DOCKER_IMAGE_VERSION = 'sigven/gvanno:' + str(GVANNO_VERSION)
 
 
 def __main__():
    
-   program_description = "gvanno - workflow for functional and clinical annotation of germline nucleotide variants"
+   program_description = "gvanno - workflow for functional and clinical annotation of human DNA variants"
    program_options = "   --query_vcf <QUERY_VCF>\n   --gvanno_dir <GVANNO_DIR>\n   --output_dir <OUTPUT_DIR>\n   --genome_assembly " + \
       "<grch37|grch38>\n   --sample_id <SAMPLE_ID>\n   --container <docker|singularity>"
 
@@ -44,12 +44,15 @@ def __main__():
    optional_vep.add_argument('--vep_n_forks', default = 4, help="Number of forks for VEP processing, default: %(default)s")
    optional_vep.add_argument('--vep_buffer_size', default = 500, help="Variant buffer size (variants read into memory simultaneously) " + \
       "for VEP processing\n- set lower to reduce memory usage, higher to increase speed, default: %(default)s")
-   optional_vep.add_argument('--vep_pick_order', default = "canonical,appris,biotype,ccds,rank,tsl,length,mane", help="Comma-separated string " + \
+   optional_vep.add_argument('--vep_pick_order', default = "mane_select,mane_plus_clinical,canonical,appris,biotype,ccds,rank,tsl,length", help="Comma-separated string " + \
       "of ordered transcript properties for primary variant pick in\nVEP processing, default: %(default)s")
    optional_vep.add_argument('--vep_skip_intergenic', action = "store_true", help="Skip intergenic variants (VEP), default: %(default)s")
    optional_vep.add_argument('--vep_coding_only', action = "store_true", help="Only return consequences that fall in the coding regions of transcripts (VEP), default: %(default)s")
    optional.add_argument('--vcfanno_n_processes', default = 4, help="Number of processes for vcfanno " + \
       "processing (see https://github.com/brentp/vcfanno#-p), default: %(default)s")
+   optional.add_argument('--oncogenicity_annotation', action ='store_true', help = 'Classify variants according to oncogenicity (Horak et al., Genet Med, 2022)')
+   optional.add_argument("--debug", action="store_true", help="Print full Docker/Singularity commands to log and do not delete intermediate files with warnings etc.")
+
    required.add_argument('--query_vcf', help='VCF input file with germline query variants (SNVs/InDels).', required = True)
    required.add_argument('--gvanno_dir',help='Directory that contains the gvanno data bundle, e.g. ~/gvanno-' + str(GVANNO_VERSION), required = True)
    required.add_argument('--output_dir',help='Output directory', required = True)
@@ -65,19 +68,23 @@ def __main__():
    ## Check that VEP pick criteria is formatted correctly
    if not arg_dict['vep_pick_order'] is None:
       values = str(arg_dict['vep_pick_order']).split(',')
-      permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane']
+      permitted_sources = ['canonical','appris','tsl','biotype','ccds','rank','length','mane_plus_clinical','mane_select']
       num_permitted_sources = 0
       for v in values:
          if v in permitted_sources:
             num_permitted_sources += 1
                
-      if num_permitted_sources != 8:
+      if num_permitted_sources != 9:
          err_msg = "Option 'vep_pick_order' = " + str(arg_dict['vep_pick_order']) + " is formatted incorrectly, should be " + \
-            "a comma-separated string of the following values: canonical,appris,tsl,biotype,ccds,rank,length,mane"
+            "a comma-separated string of the following values: mane_select,mane_plus_clinical,canonical,appris,tsl,biotype,ccds,rank,length"
          gvanno_error_message(err_msg, logger)
 
    if arg_dict['container'] is None:
       err_msg = 'Please specify whether the gvanno workflow is running through Docker or Singularity (--container <docker|singularity>)'
+      gvanno_error_message(err_msg, logger)
+
+   if arg_dict['oncogenicity_annotation'] is True and arg_dict['vep_lof_prediction'] is False:
+      err_msg = "Option --oncogenicity_annotation requires --vep_lof_prediction turned on"
       gvanno_error_message(err_msg, logger)
 
    logger = getlogger('gvanno-check-files')
@@ -295,8 +302,9 @@ def run_gvanno(arg_dict, host_directories):
       container_command_run2 = container_command_run2 + " -W /workdir/output " + 'src/gvanno.sif' + " sh -c \""
       docker_command_run_end = '\"'
 
-   #logger.info(container_command_run1)
-   #logger.info(container_command_run2)
+   if arg_dict['debug']:
+      logger.info(container_command_run1)
+      logger.info(container_command_run2)
 
    ## GVANNO|start - Log key information about sample, options and assembly
    logger = getlogger("gvanno-start")
@@ -310,7 +318,8 @@ def run_gvanno(arg_dict, host_directories):
    logger.info("STEP 0: Validate input data")
    vcf_validate_command = str(container_command_run1) + "gvanno_validate_input.py " + str(data_dir) + " " + str(input_vcf_docker) + " " + \
       str(vcf_validation) + " "  + str(arg_dict['genome_assembly']) + docker_command_run_end
-   #logger.info(vcf_validate_command)
+   if arg_dict['debug']:
+      logger.info(vcf_validate_command)
 
    check_subprocess(vcf_validate_command)
    logger.info('Finished')
@@ -338,7 +347,7 @@ def run_gvanno(arg_dict, host_directories):
       vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
          "--uniprot --appris --biotype --canonical --format vcf --mane --cache --numbers --total_length --allele_number --no_escape " + \
          "--xref_refseq --plugin NearestExonJB,max_range=50000"
-      vep_options = "--vcf --quiet --check_ref --flag_pick_allele --pick_order " + str(arg_dict['vep_pick_order']) + \
+      vep_options = "--vcf --quiet --check_ref --flag_pick_allele_gene --pick_order " + str(arg_dict['vep_pick_order']) + \
          " --force_overwrite --species homo_sapiens --assembly " + str(VEP_ASSEMBLY) + " --offline --fork " + \
          str(arg_dict['vep_n_forks']) + " " + str(vep_flags) + " --dir /usr/local/share/vep/data"
       
@@ -378,6 +387,8 @@ def run_gvanno(arg_dict, host_directories):
       logger.info("VEP configuration - loss-of-function prediction: " + str(arg_dict['vep_lof_prediction']))
       logger.info("VEP configuration - plugins in use: " + str(plugins_in_use))
 
+      if arg_dict['debug']:
+         logger.info(vep_main_command)
       check_subprocess(vep_main_command)
       check_subprocess(vep_bgzip_command)
       check_subprocess(vep_tabix_command)
@@ -386,11 +397,14 @@ def run_gvanno(arg_dict, host_directories):
       ## GVANNO|vcfanno - annotate VCF against a number of variant annotation resources
       print()
       logger = getlogger('gvanno-vcfanno')
-      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (ClinVar, ncER, dbNSFP, GWAS catalog, cancerhotspots.org)")
+      logger.info("STEP 2: Clinical/functional variant annotations with gvanno-vcfanno (Clinvar, ncER, dbNSFP, GWAS catalog)")
       logger.info('vcfanno configuration - number of processes (-p): ' + str(arg_dict['vcfanno_n_processes']))
       gvanno_vcfanno_command = str(container_command_run2) + "gvanno_vcfanno.py --num_processes "  + str(arg_dict['vcfanno_n_processes']) + \
-         " --dbnsfp --clinvar --ncer --gvanno_xref --gwas --cancer_hotspots " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
+         " --dbnsfp --clinvar --ncer --gvanno_xref --gwas " + str(vep_vcf) + ".gz " + str(vep_vcfanno_vcf) + \
          " " + os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + docker_command_run_end
+      
+      if arg_dict['debug']:
+         logger.info(gvanno_vcfanno_command)
       check_subprocess(gvanno_vcfanno_command)
       logger.info("Finished")
 
@@ -398,9 +412,13 @@ def run_gvanno(arg_dict, host_directories):
       print()
       logger = getlogger("gvanno-summarise")
       logger.info("STEP 3: Summarise gene and variant annotations with gvanno-summarise")
+      logger.info("Configuration - oncogenicity classification: " + str(int(arg_dict['oncogenicity_annotation'])))
       gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + \
          os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['vep_lof_prediction'])) + \
-            " "  + str(int(arg_dict['vep_regulatory'])) + docker_command_run_end
+            " "  + str(int(arg_dict['oncogenicity_annotation'])) + " " + str(int(arg_dict['vep_regulatory'])) + docker_command_run_end
+      
+      if arg_dict['debug']:
+         logger.info(gvanno_summarise_command)
       check_subprocess(gvanno_summarise_command)
       logger.info("Finished")
       
@@ -415,14 +433,15 @@ def run_gvanno(arg_dict, host_directories):
       check_subprocess(create_output_vcf_command2)
       check_subprocess(create_output_vcf_command3)
       check_subprocess(create_output_vcf_command4)
-      check_subprocess(clean_command)
+      if not arg_dict['debug']:
+         check_subprocess(clean_command)
       
       print()
       ## GVANNO|vcf2tsv - convert VCF to TSV with https://github.com/sigven/vcf2tsv
       logger = getlogger("gvanno-vcf2tsv")
-      logger.info("STEP 4: Converting VCF to TSV with https://github.com/sigven/vcf2tsvpy")
-      gvanno_vcf2tsv_command_pass = str(container_command_run2) + "vcf2tsv.py " + str(output_pass_vcf) + " --compress " + str(output_pass_tsv) + docker_command_run_end
-      gvanno_vcf2tsv_command_all = str(container_command_run2) + "vcf2tsv.py " + str(output_vcf) + " --compress --keep_rejected " + str(output_tsv) + docker_command_run_end
+      logger.info("STEP 4: Converting genomic VCF to TSV with https://github.com/sigven/vcf2tsvpy")
+      gvanno_vcf2tsv_command_pass = str(container_command_run2) + "vcf2tsvpy --input_vcf " + str(output_pass_vcf) + " --compress --out_tsv " + str(output_pass_tsv) + docker_command_run_end
+      gvanno_vcf2tsv_command_all = str(container_command_run2) + "vcf2tsvpy --input_vcf " + str(output_vcf) + " --compress --keep_rejected --out_tsv " + str(output_tsv) + docker_command_run_end
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS variants only")
       check_subprocess(gvanno_vcf2tsv_command_pass)
       logger.info("Conversion of VCF variant data to records of tab-separated values - PASS and non-PASS variants")
