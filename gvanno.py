@@ -53,7 +53,7 @@ def __main__():
    optional.add_argument('--oncogenicity_annotation', action ='store_true', help = 'Classify variants according to oncogenicity (Horak et al., Genet Med, 2022)')
    optional.add_argument("--debug", action="store_true", help="Print full Docker/Singularity commands to log and do not delete intermediate files with warnings etc.")
 
-   required.add_argument('--query_vcf', help='VCF input file with germline query variants (SNVs/InDels).', required = True)
+   required.add_argument('--query_vcf', help='VCF input file with query variants (SNVs/InDels).', required = True)
    required.add_argument('--gvanno_dir',help='Directory that contains the gvanno data bundle, e.g. ~/gvanno-' + str(GVANNO_VERSION), required = True)
    required.add_argument('--output_dir',help='Output directory', required = True)
    required.add_argument('--genome_assembly',choices = ['grch37','grch38'], help='Genome assembly build: grch37 or grch38', required = True)
@@ -308,7 +308,7 @@ def run_gvanno(arg_dict, host_directories):
 
    ## GVANNO|start - Log key information about sample, options and assembly
    logger = getlogger("gvanno-start")
-   logger.info("--- Germline variant annotation (gvanno) workflow ----")
+   logger.info("--- Generic variant annotation (gvanno) workflow ----")
    logger.info("Sample name: " + str(arg_dict['sample_id']))
    logger.info("Genome assembly: " + str(arg_dict['genome_assembly']))
    print()
@@ -344,7 +344,7 @@ def run_gvanno(arg_dict, host_directories):
       ## List all VEP flags used when calling VEP
       loftee_dir = '/opt/vep/src/ensembl-vep/modules'
       plugins_in_use = "NearestExonJB"
-      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomad --variant_class --domains --symbol --protein --ccds " + \
+      vep_flags = "--hgvs --dont_skip --failed 1 --af --af_1kg --af_gnomade --af_gnomadg --variant_class --domains --symbol --protein --ccds " + \
          "--uniprot --appris --biotype --canonical --format vcf --mane --cache --numbers --total_length --allele_number --no_escape " + \
          "--xref_refseq --plugin NearestExonJB,max_range=50000"
       vep_options = "--vcf --quiet --check_ref --flag_pick_allele_gene --pick_order " + str(arg_dict['vep_pick_order']) + \

@@ -256,29 +256,30 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
       "AFR_AF_GNOMAD" in variant_data.keys() and \
       "NFE_AF_GNOMAD" in variant_data.keys():
 
-      if (not variant_data['EAS_AF_GNOMAD'] is None and variant_data['EAS_AF_GNOMAD'] > 0.05) or \
-         (not variant_data['AMR_AF_GNOMAD'] is None and variant_data['AFR_AF_GNOMAD'] > 0.05) or \
-         (not variant_data['AFR_AF_GNOMAD'] is None and variant_data['AMR_AF_GNOMAD'] > 0.05) or \
-         (not variant_data['SAS_AF_GNOMAD'] is None and variant_data['SAS_AF_GNOMAD'] > 0.05) or \
-         (not variant_data['NFE_AF_GNOMAD'] is None and variant_data['NFE_AF_GNOMAD'] > 0.05):
-         variant_data["CLINGEN_VICC_SBVS1"] = True
-      
-      if ((not variant_data['EAS_AF_GNOMAD'] is None and variant_data['EAS_AF_GNOMAD'] > 0.01) or \
-         (not variant_data['AMR_AF_GNOMAD'] is None and variant_data['AFR_AF_GNOMAD'] > 0.01) or \
-         (not variant_data['AFR_AF_GNOMAD'] is None and variant_data['AMR_AF_GNOMAD'] > 0.01) or \
-         (not variant_data['SAS_AF_GNOMAD'] is None and variant_data['SAS_AF_GNOMAD'] > 0.01) or \
-         (not variant_data['NFE_AF_GNOMAD'] is None and variant_data['NFE_AF_GNOMAD'] > 0.01)) and \
-            variant_data['CLINGEN_VICC_SBVS1'] is False:
-         variant_data["CLINGEN_VICC_SBS1"] = True
-         
-      
-      if (variant_data['EAS_AF_GNOMAD'] is None or variant_data['EAS_AF_GNOMAD'] == 0) and \
-         (variant_data['AMR_AF_GNOMAD'] is None or variant_data['AFR_AF_GNOMAD'] == 0) and \
-         (variant_data['AFR_AF_GNOMAD'] is None or variant_data['AMR_AF_GNOMAD'] == 0) and \
-         (variant_data['SAS_AF_GNOMAD'] is None or variant_data['SAS_AF_GNOMAD'] == 0) and \
-         (variant_data['NFE_AF_GNOMAD'] is None or variant_data['NFE_AF_GNOMAD'] == 0):
-         variant_data["CLINGEN_VICC_OP4"] = True
+      ## check if variant has MAF > 0.01 (SBVS1) or > 0.05 in any of five major gnomAD subpopulations (exome set)
+      for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
+         if not variant_data[pop] is None:
+            if float(variant_data[pop]) > 0.05:
+               variant_data["CLINGEN_VICC_SBVS1"] = True
+      for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
+         if not variant_data[pop] is None:
+            if float(variant_data[pop]) > 0.01 and variant_data["CLINGEN_VICC_SBVS1"] is False:
+               variant_data["CLINGEN_VICC_SBS1"] = True
 
+      missing_pop_freq = 0
+      approx_zero_pop_freq = 0
+      for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
+         if variant_data[pop] is None:
+            missing_pop_freq = missing_pop_freq + 1
+         else:
+            if float(variant_data[pop]) < 0.0001:
+               approx_zero_pop_freq = approx_zero_pop_freq + 1
+    
+      ## check if variant is missing or with MAF approximately zero in all five major gnomAD subpopulations (exome set)
+      if missing_pop_freq == 5 or approx_zero_pop_freq == 5:
+         variant_data["CLINGEN_VICC_OP4"] = True
+    
+   ## check if variant is a loss-of-function variant (LOFTEE) in a tumor suppressor gene (Cancer Gene Census/CancerMine)
    if "TUMOR_SUPPRESSOR" in variant_data.keys() and \
       "ONCOGENE" in variant_data.keys() and \
       "LOSS_OF_FUNCTION" in variant_data.keys() and \
@@ -287,6 +288,7 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
       if variant_data['LOSS_OF_FUNCTION'] is True and variant_data['TUMOR_SUPPRESSOR'] is True:
          variant_data['CLINGEN_VICC_OVS1'] = True
   
+      ## check if variant is creating a stop-lost or protein-length change in oncogene/tumor suppressor genes
       if variant_data['CLINGEN_VICC_OVS1'] is False and \
          ((re.match(r'^(inframe_deletion|inframe_insertion)', variant_data['Consequence']) and \
             (variant_data['TUMOR_SUPPRESSOR'] is True or variant_data['ONCOGENE'] is True)) or \
@@ -294,6 +296,7 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
             variant_data['TUMOR_SUPPRESSOR'] is True)):
             variant_data['CLINGEN_VICC_OM2'] = True
    
+   ## check if variant is silent (synonymous|splice) and outside critical splice region
    if "INTRON_POSITION" in variant_data.keys() and \
       "EXON_POSITION" in variant_data.keys() and \
       "DBNSFP_SPLICE_SITE_RF" in variant_data.keys() and \
@@ -339,7 +342,7 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
       'Located in a mutation hotspot (cancerhotspots.org). < 50 samples with a variant at AA position, >= 10 samples with same AA change.',
       'Multiple lines (>=7) of computational evidence support a damaging effect on the gene or gene product - from dbNSFP',
       'Located in a mutation hotspot (cancerhotspots.org). < 10 samples with the same amino acid change.',
-      'Absent from controls (gnomAD) / very low MAF']
+      'Absent from controls (gnomAD) / very low MAF ( < 0.0001 in all five major subpopulations)']
    
    og_score_data['score'] = \
       [-8, -4, -1, -1, 8, 4, 2, 2, 1, 1, 1]
@@ -389,9 +392,9 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
    lb_upper_limit = -1
    lb_lower_limit = -6
    b_upper_limit = -7
-   vus_lower_limit = 0
-   vus_upper_limit = 5
-   lo_lower_limit = 6
+   #vus_lower_limit = 0
+   #vus_upper_limit = 4
+   lo_lower_limit = 5
    lo_upper_limit = 9
    o_lower_limit = 10
 
@@ -409,7 +412,6 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
    
    for e in ['ONCOGENICITY_SCORE',
              'ONCOGENICITY_CLASSIFICATION',
-             #'ONCOGENICITY_CLASSIFICATION_DOC',
              'ONCOGENICITY_CLASSIFICATION_CODE']:
       rec.INFO[e] = variant_data[e]
 

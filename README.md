@@ -15,10 +15,12 @@ The generic variant annotator (*gvanno*) is a software package intended for anal
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record __per sample variant__.
 
 ### News
+* March 2023 - **xxx release**
+
 * September 26th 2022 - **1.5.1 release**
   * Added option `--vep_coding_only` - only report variants that fall into coding regions of transcripts (VEP option `--coding_only`)
 * September 24th 2022 - **1.5.0 release**
-  * Data updates: ClinVar, GENCODE GWAS catalog, CancerMine, Open Targets Platform
+  * Data updates: ClinVar, GENCODE, GWAS catalog, CancerMine, Open Targets Platform
   * Software updates: VEP 107
   * Excluded UniProt KB from annotation tracks
 * December 21st 2021 - **1.4.4 release**
