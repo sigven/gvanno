@@ -15,7 +15,7 @@ The generic variant annotator (*gvanno*) is a software package intended for anal
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short InDels. The workflow relies heavily upon [Ensembl’s Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record __per sample variant__.
 
 ### News
-* March 2023 - **xxx release**
+* April 2023 - **xxx release**
 
 * September 26th 2022 - **1.5.1 release**
   * Added option `--vep_coding_only` - only report variants that fall into coding regions of transcripts (VEP option `--coding_only`)
@@ -29,19 +29,16 @@ The generic variant annotator (*gvanno*) is a software package intended for anal
 * August 25th 2021 - **1.4.3 release**
 	* Data updates: ClinVar, GWAS catalog, CancerMine, UniProt, Open Targets Platform
 
-### Annotation resources (v1.5.1)
+### Annotation resources (v1.6x)
 
-* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v107 (GENCODE v41/v19 as the gene reference dataset)
+* [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v109 (GENCODE v43/v19 as the gene reference dataset)
 * [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.2, March 2021)
 * [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
 * [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 154) - from VEP
-* [1000 Genomes Project - phase3](ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/) - Germline variant frequencies genome-wide (May 2013) - from VEP
-* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (September 2022)
-* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 47, July 2022)
-* [Open Targets Platform](https://targetvalidation.org) - Target-disease and target-drug associations (2022_06, June 2022)
-* [Pfam](http://pfam.xfam.org) - Database of protein families and domains (v35.0, November 2021)
+* [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (April 2023)
+* [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 50, March 2023)
 * [Mutation hotspots](cancerhotspots.org) - Database of mutation hotspots in cancer
-* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (August 26th 2022)
+* [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (March 27th 2023)
 
 
 ### Getting started

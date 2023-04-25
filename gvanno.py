@@ -12,7 +12,7 @@ import platform
 from argparse import RawTextHelpFormatter
 
 GVANNO_VERSION = '1.6.0'
-DB_VERSION = 'GVANNO_DB_VERSION = 20230310'
+DB_VERSION = 'GVANNO_DB_VERSION = 20230425'
 VEP_VERSION = '109'
 GENCODE_VERSION = 'v43'
 VEP_ASSEMBLY = "GRCh38"
@@ -415,7 +415,8 @@ def run_gvanno(arg_dict, host_directories):
       logger.info("Configuration - oncogenicity classification: " + str(int(arg_dict['oncogenicity_annotation'])))
       gvanno_summarise_command = str(container_command_run2) + "gvanno_summarise.py " + str(vep_vcfanno_vcf) + ".gz " + \
          os.path.join(data_dir, "data", str(arg_dict['genome_assembly'])) + " " + str(int(arg_dict['vep_lof_prediction'])) + \
-            " "  + str(int(arg_dict['oncogenicity_annotation'])) + " " + str(int(arg_dict['vep_regulatory'])) + docker_command_run_end
+            " "  + str(int(arg_dict['oncogenicity_annotation'])) + " " + str(int(arg_dict['vep_regulatory'])) + " " + \
+               str(int(arg_dict['debug'])) + docker_command_run_end
       
       if arg_dict['debug']:
          logger.info(gvanno_summarise_command)

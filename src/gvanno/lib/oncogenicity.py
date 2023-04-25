@@ -259,19 +259,23 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
       ## check if variant has MAF > 0.01 (SBVS1) or > 0.05 in any of five major gnomAD subpopulations (exome set)
       for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
          if not variant_data[pop] is None:
-            if float(variant_data[pop]) > 0.05:
+            ## MAF for this population >= 0.05
+            if float(variant_data[pop]) >= 0.05:
                variant_data["CLINGEN_VICC_SBVS1"] = True
       for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
          if not variant_data[pop] is None:
-            if float(variant_data[pop]) > 0.01 and variant_data["CLINGEN_VICC_SBVS1"] is False:
+            ## MAF for this population >= 0.01 (< 0.05)
+            if float(variant_data[pop]) >= 0.01 and variant_data["CLINGEN_VICC_SBVS1"] is False:
                variant_data["CLINGEN_VICC_SBS1"] = True
 
       missing_pop_freq = 0
       approx_zero_pop_freq = 0
       for pop in ['EAS_AF_GNOMAD','SAS_AF_GNOMAD','AMR_AF_GNOMAD','AFR_AF_GNOMAD','NFE_AF_GNOMAD']:
+         ## no MAF recorded in gnomAD for this population
          if variant_data[pop] is None:
             missing_pop_freq = missing_pop_freq + 1
          else:
+            ## Very low MAF for this population
             if float(variant_data[pop]) < 0.0001:
                approx_zero_pop_freq = approx_zero_pop_freq + 1
     

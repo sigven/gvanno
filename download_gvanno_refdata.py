@@ -12,7 +12,7 @@ import urllib.request as urllib2
 from argparse import RawTextHelpFormatter
 
 GVANNO_VERSION = '1.6.0'
-REFDATA_VERSION = '20230310'
+REFDATA_VERSION = '20230425'
 ENSEMBL_VERSION = '109'
 GENCODE_VERSION = 'v43'
 VEP_ASSEMBLY = "GRCh38"

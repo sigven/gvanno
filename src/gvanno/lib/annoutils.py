@@ -640,11 +640,14 @@ def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
 
    return vep_dbnsfp_meta_info
 
-def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ'):
+def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ', debug = 0):
 
    all_csq_pick = []
    all_transcript_consequences = []
    
+
+   varkey = str(rec.CHROM) + '_' + str(rec.POS) + '_' + str(rec.REF) + '_' + str(','.join(rec.ALT))
+
    for csq in rec.INFO.get(csq_identifier).split(','):
       csq_fields =  csq.split('|')
 
@@ -677,7 +680,7 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
 
       else:
          ## loop over VEP consequence blocks PICK'ed according to VEP's ranking scheme
-         if csq_fields[vep_csq_fields_map['field2index']['PICK']] == "1": ## only consider the primary/picked consequence when expanding with annotation tags
+         if csq_fields[vep_csq_fields_map['field2index']['PICK']] == "1": ## only consider the primary/picked consequence(s) when expanding with annotation tags
             j = 0
             csq_record = {}
 
@@ -772,9 +775,36 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
       vep_selected_idx['exonic_status'] = {}
       vep_selected_idx['consequence'] = {}
 
+      #if debug:
+         #print("Picked VEP blocks: " + str(vep_csq_results['picked_gene_csq']))
+
       i = 0
-      #print('')
+      picked_blocks = []
       for trans_rec in vep_csq_results['picked_gene_csq']:
+
+         if debug:
+            biotype = '.'
+            consequence = '.'
+            exonic_status = '.'
+            genesymbol = '.'
+            distance = '.'
+            feature = '.'
+            if not trans_rec['Consequence'] is None:
+               consequence = trans_rec['Consequence']
+            if not trans_rec['SYMBOL'] is None:
+               genesymbol = trans_rec['SYMBOL']
+            if not trans_rec['BIOTYPE'] is None:
+               biotype = trans_rec['BIOTYPE']
+            if not trans_rec['EXONIC_STATUS'] is None:
+               exonic_status = trans_rec['EXONIC_STATUS']
+            if not trans_rec['DISTANCE'] is None:
+               distance = trans_rec['DISTANCE']
+            if not trans_rec['Feature'] is None:
+               feature = trans_rec['Feature']
+            block = str(genesymbol) + ':' + str(feature) + ':' + str(consequence) + ':' + str(distance) + ':' + str(biotype) + ':' + str(exonic_status)
+            picked_blocks.append(block)
+
+
          if 'BIOTYPE' in trans_rec and 'Consequence' in trans_rec and 'EXONIC_STATUS' in trans_rec:
             if not trans_rec['BIOTYPE'] is None and not trans_rec['Consequence'] is None:
                if trans_rec['BIOTYPE'] == "protein_coding":
@@ -782,6 +812,11 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                   vep_selected_idx['exonic_status'][i] = trans_rec['EXONIC_STATUS']
                   vep_selected_idx['consequence'][i] = trans_rec['Consequence']
          i = i + 1
+
+      
+      if debug:
+         print(str(varkey) + " - picked CSQ blocks: " + ' /// '.join(picked_blocks))
+
             
       ## when multiple transcript gene blocks are picked by VEP, prioritize the block with 'exonic' consequence
       if len(vep_selected_idx['exonic_status'].keys()) > 1:

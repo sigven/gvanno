@@ -21,11 +21,12 @@ def __main__():
    parser.add_argument('lof_prediction',default=0,type=int,help='VEP LoF prediction setting (0/1)')
    parser.add_argument('oncogenicity_annotation',default=0,type=int,help='Include oncogenicity annotation (0/1)')
    parser.add_argument('regulatory_annotation',default=0,type=int,help='Inclusion of VEP regulatory annotations (0/1)')
+   parser.add_argument('debug',default=0,type=int,help='Output extensive debugging information')
    args = parser.parse_args()
 
-   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction, args.oncogenicity_annotation, args.regulatory_annotation)
+   extend_vcf_annotations(args.vcf_file, args.gvanno_db_dir, args.lof_prediction, args.oncogenicity_annotation, args.regulatory_annotation, args.debug)
 
-def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, oncogenicity_annotation = 0, regulatory_annotation = 0):
+def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, oncogenicity_annotation = 0, regulatory_annotation = 0, debug = 0):
    """
    Function that reads VEP/vcfanno-annotated VCF and extends the VCF INFO column with tags from
    1. CSQ elements within the primary transcript consequence picked by VEP, e.g. SYMBOL, Feature, Gene, Consequence etc.
@@ -46,15 +47,19 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, o
    for tag in vcf_infotags_meta:
       if lof_prediction == 0 and regulatory_annotation == 0:
          if not tag.startswith('LoF') and not tag.startswith('REGULATORY_'):
-            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']), \
+                                    'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
       elif lof_prediction == 1 and regulatory_annotation == 0:
          if not tag.startswith('REGULATORY_'):
-            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']), \
+                                    'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
       elif lof_prediction == 0 and regulatory_annotation == 1:
          if not tag.startswith('LoF'):
-            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+            vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']), \
+                                    'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
       else:
-         vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']),'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
+         vcf.add_info_to_header({'ID': tag, 'Description': str(vcf_infotags_meta[tag]['description']), \
+                                 'Type':str(vcf_infotags_meta[tag]['type']), 'Number': str(vcf_infotags_meta[tag]['number'])})
 
 
    w = Writer(out_vcf, vcf)
@@ -95,7 +100,7 @@ def extend_vcf_annotations(query_vcf, gvanno_db_directory, lof_prediction = 0, o
             vep_csq_records_all = csq_record_results_all['picked_gene_csq']
             rec.INFO['REGULATORY_ANNOTATION'] = annoutils.map_regulatory_variant_annotations(vep_csq_records_all)
 
-      vep_csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ')
+      vep_csq_record_results = annoutils.parse_vep_csq(rec, gvanno_xref, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ', debug = debug)
 
       
       principal_hgvsp = '.'
