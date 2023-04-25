@@ -221,10 +221,10 @@ def download_gvanno_ref_data(arg_dict):
          logger.info('VEP cache already downloaded')
       else:
          logger.info('VEP cache - download in progress - this can take a while ...  ')
-         #urllib2.urlretrieve(datasets['vep_cache']['remote_url'], datasets['vep_cache']['local_path'])
+         urllib2.urlretrieve(datasets['vep_cache']['remote_url'], datasets['vep_cache']['local_path'])
    else:
       logger.info('VEP cache - download in progress - this can take a while ...  ')
-      #urllib2.urlretrieve(datasets['vep_cache']['remote_url'], datasets['vep_cache']['local_path'])
+      urllib2.urlretrieve(datasets['vep_cache']['remote_url'], datasets['vep_cache']['local_path'])
    
    logger.info('VEP cache - unzip and untar')
 
@@ -245,7 +245,7 @@ def download_gvanno_ref_data(arg_dict):
    logger.info('VEP FASTA - local destination file: ' + str(datasets['vep_fasta']['local_path']))
    logger.info('VEP FASTA - download in progress - this can take a while ...  ')
 
-   #urllib2.urlretrieve(datasets['vep_fasta']['remote_url'], datasets['vep_fasta']['local_path'])
+   urllib2.urlretrieve(datasets['vep_fasta']['remote_url'], datasets['vep_fasta']['local_path'])
    logger.info('VEP FASTA - unzip + bgzip')
    command_unzip_fasta = f"gzip -d {datasets['vep_fasta']['local_path']}"
    check_subprocess(command = command_unzip_fasta, logger = logger)
