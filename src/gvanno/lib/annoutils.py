@@ -9,7 +9,9 @@ import subprocess
 
 
 csv.field_size_limit(500 * 1024 * 1024)
-threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','Glu':'E','Gln':'Q','Gly':'G','His':'H','Ile':'I','Leu':'L','Lys':'K', 'Met':'M','Phe':'F','Pro':'P','Ser':'S','Thr':'T','Trp':'W','Tyr':'Y','Val':'V','Ter':'X'}
+threeLettertoOneLetterAA = {'Ala':'A','Arg':'R','Asn':'N','Asp':'D','Cys':'C','Glu':'E','Gln':'Q','Gly':'G','His':'H',
+                           'Ile':'I','Leu':'L','Lys':'K', 'Met':'M','Phe':'F','Pro':'P','Ser':'S','Thr':'T','Trp':'W',
+                           'Tyr':'Y','Val':'V','Ter':'X'}
 
 
 
@@ -23,6 +25,7 @@ def read_genexref_namemap(logger, gene_xref_namemap_tsv):
    reader = csv.DictReader(tsvfile, delimiter='\t')
    for row in reader:
       namemap_xref[row['name']] = int(row['index'])
+   tsvfile.close()
 
    return namemap_xref
 
@@ -45,12 +48,13 @@ def read_infotag_file(logger, vcf_info_tags_tsv):
    for row in reader:
       if not row['tag'] in info_tag_xref:
          info_tag_xref[row['tag']] = row
+   tsvfile.close()
    
    return info_tag_xref
 
 def check_subprocess(command):
-   #if debug:
-      #logger.info(command)
+   # if debug:
+   #    logger.info(command)
    try:
       output = subprocess.check_output(str(command), stderr=subprocess.STDOUT, shell=True)
       if len(output) > 0:
@@ -79,7 +83,6 @@ def write_pass_vcf(annotated_vcf, logger):
    Function prints all PASS variants from a VCF file. New VCF file appends '.pass.' to the filename.
    
    """
-   #out_vcf = re.sub(r'\.annotated\.vcf\.gz$','.annotated.pass.vcf',annotated_vcf)
    out_vcf = re.sub(r'\.vcf\.gz$','.pass.vcf',annotated_vcf)
    vcf = VCF(annotated_vcf)
    w = Writer(out_vcf, vcf)
@@ -268,7 +271,7 @@ def get_correct_cpg_transcript(vep_csq_records):
       return csq_idx
    
    
-   ## some variants iare assigned multiple transcript consequences
+   ## some variants are assigned multiple transcript consequences
    ## if cancer predisposition genes are in the vicinity of other genes, choose the cancer predisposition gene
    ## if there are neighbouring cancer-predispositon genes, choose custom gene, preferring coding change (see below, KLLN/PTEN, XPC/TMEM43, NTHL1/TSC2)
    csq_idx_dict = {}
@@ -576,15 +579,24 @@ def make_transcript_xref_map(rec, fieldmap, xref_tag = 'PCGR_ONCO_XREF'):
    return(transcript_xref_map)
 
 def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
-   vep_to_pcgr_af = {'gnomAD_AMR_AF':'AMR_AF_GNOMAD',
-                     'gnomAD_AFR_AF':'AFR_AF_GNOMAD',
-                     'gnomAD_EAS_AF':'EAS_AF_GNOMAD',
-                     'gnomAD_NFE_AF':'NFE_AF_GNOMAD',
-                     'gnomAD_AF':'GLOBAL_AF_GNOMAD',
-                     'gnomAD_SAS_AF':'SAS_AF_GNOMAD',
-                     'gnomAD_OTH_AF':'OTH_AF_GNOMAD',
-                     'gnomAD_ASJ_AF':'ASJ_AF_GNOMAD',
-                     'gnomAD_FIN_AF':'FIN_AF_GNOMAD',
+   vep_to_pcgr_af = {'gnomADe_AMR_AF':'AMR_AF_GNOMAD',
+                     'gnomADe_AFR_AF':'AFR_AF_GNOMAD',
+                     'gnomADe_EAS_AF':'EAS_AF_GNOMAD',
+                     'gnomADe_NFE_AF':'NFE_AF_GNOMAD',
+                     'gnomADe_AF':'GLOBAL_AF_GNOMAD',
+                     'gnomADe_SAS_AF':'SAS_AF_GNOMAD',
+                     'gnomADe_OTH_AF':'OTH_AF_GNOMAD',
+                     'gnomADe_ASJ_AF':'ASJ_AF_GNOMAD',
+                     'gnomADe_FIN_AF':'FIN_AF_GNOMAD',
+                     'gnomADG_AMR_AF':'AMR_AF_GNOMADg',
+                     'gnomADg_AFR_AF':'AFR_AF_GNOMADg',
+                     'gnomADg_EAS_AF':'EAS_AF_GNOMADg',
+                     'gnomADg_NFE_AF':'NFE_AF_GNOMADg',
+                     'gnomADg_AF':'GLOBAL_AF_GNOMADg',
+                     'gnomADg_SAS_AF':'SAS_AF_GNOMADg',
+                     'gnomADg_OTH_AF':'OTH_AF_GNOMADg',
+                     'gnomADg_ASJ_AF':'ASJ_AF_GNOMADg',
+                     'gnomADg_FIN_AF':'FIN_AF_GNOMADg',
                      'AFR_AF':'AFR_AF_1KG',
                      'AMR_AF':'AMR_AF_1KG',
                      'SAS_AF':'SAS_AF_1KG',
@@ -628,13 +640,32 @@ def vep_dbnsfp_meta_vcf(query_vcf, info_tags_wanted):
 
    return vep_dbnsfp_meta_info
 
-def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ'):
+def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_only = True, csq_identifier = 'CSQ', debug = 0):
 
    all_csq_pick = []
    all_transcript_consequences = []
    
+
+   varkey = str(rec.CHROM) + '_' + str(rec.POS) + '_' + str(rec.REF) + '_' + str(','.join(rec.ALT))
+
    for csq in rec.INFO.get(csq_identifier).split(','):
       csq_fields =  csq.split('|')
+
+      entrezgene = '.'
+
+      ## Entrez gene identifier is not provided directly by VEP, pull out this from 'transcript_xref_map' for a given transcript-specific CSQ block
+      ##  - used for 'consequence_entry' object that are added to 'vep_all_csq' array
+      k = 0
+      while(k < len(csq_fields)):
+         if k in vep_csq_fields_map['index2field']:
+            if vep_csq_fields_map['index2field'][k] == 'Feature':
+               ensembl_transcript_id = csq_fields[k]
+               if ensembl_transcript_id != '' and ensembl_transcript_id.startswith('ENST'):
+                  if ensembl_transcript_id in transcript_xref_map.keys():
+                     if 'ENTREZGENE' in transcript_xref_map[ensembl_transcript_id].keys():
+                        entrezgene = transcript_xref_map[ensembl_transcript_id]['ENTREZGENE']
+         k = k + 1
+
 
       if pick_only is False:
          j = 0
@@ -649,7 +680,7 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
 
       else:
          ## loop over VEP consequence blocks PICK'ed according to VEP's ranking scheme
-         if csq_fields[vep_csq_fields_map['field2index']['PICK']] == "1": ## only consider the primary/picked consequence when expanding with annotation tags
+         if csq_fields[vep_csq_fields_map['field2index']['PICK']] == "1": ## only consider the primary/picked consequence(s) when expanding with annotation tags
             j = 0
             csq_record = {}
 
@@ -666,7 +697,10 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
                                  ## assign additional gene/transcript annotations from the custom transcript 
                                  ## xref map (PCGR/CPSR/gvanno) as key,value pairs in the csq_record object
                                  csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
+                                 #print(str(annotation) + "\t" + str(transcript_xref_map[ensembl_transcript_id][annotation]))
+                                 
                               else:
+                                 #print(str(annotation) + "\t" + str(transcript_xref_map[ensembl_transcript_id][annotation]))
                                  ## If not VEP provides SYMBOL, append SYMBOL provided by xref map
                                  if csq_record['SYMBOL'] is None:
                                      csq_record[annotation] = transcript_xref_map[ensembl_transcript_id][annotation]
@@ -706,27 +740,246 @@ def parse_vep_csq(rec, transcript_xref_map, vep_csq_fields_map, logger, pick_onl
             assign_cds_exon_intron_annotations(csq_record)
             ## Append transcript consequence to all_csq_pick
             all_csq_pick.append(csq_record)
-         symbol = '.'
-         hgvsc = ".:."
-         hgvsp = ".:."
+         symbol = "."
+         hgvsc = "."
+         hgvsp = "."
          if csq_fields[vep_csq_fields_map['field2index']['SYMBOL']] != "":
             symbol = str(csq_fields[vep_csq_fields_map['field2index']['SYMBOL']])
          if csq_fields[vep_csq_fields_map['field2index']['HGVSc']] != "":
-            hgvsc = str(csq_fields[vep_csq_fields_map['field2index']['HGVSc']])
+            hgvsc = str(csq_fields[vep_csq_fields_map['field2index']['HGVSc']].split(':')[1])
          if csq_fields[vep_csq_fields_map['field2index']['HGVSp']] != "":
-            hgvsp = str(csq_fields[vep_csq_fields_map['field2index']['HGVSp']])
-         consequence_entry = (str(csq_fields[vep_csq_fields_map['field2index']['Consequence']]) + ':' +  
-            str(symbol) + ':' + 
-            str(hgvsc) + ':' + 
-            str(hgvsp) + ':' + 
-            str(csq_fields[vep_csq_fields_map['field2index']['Feature_type']]) + ':' + 
-            str(csq_fields[vep_csq_fields_map['field2index']['Feature']]) + ':' + 
+            hgvsp = str(csq_fields[vep_csq_fields_map['field2index']['HGVSp']].split(':')[1])
+         consequence_entry = (str(csq_fields[vep_csq_fields_map['field2index']['Consequence']]) + ":" +  
+            str(symbol) + ":" + 
+            str(entrezgene) + ":" +
+            str(hgvsc) + ":" + 
+            str(hgvsp) + ":" + 
+            str(csq_fields[vep_csq_fields_map['field2index']['Feature_type']]) + ":" + 
+            str(csq_fields[vep_csq_fields_map['field2index']['Feature']]) + ":" + 
             str(csq_fields[vep_csq_fields_map['field2index']['BIOTYPE']]))
          all_transcript_consequences.append(consequence_entry)
-         
+
+
+   vep_chosen_csq_idx = 0
    vep_csq_results = {}
-   vep_csq_results['vep_block'] = all_csq_pick
-   vep_csq_results['vep_all_csq'] = all_transcript_consequences
+   vep_csq_results['picked_gene_csq'] = all_csq_pick
+   vep_csq_results['all_csq'] = all_transcript_consequences
+   vep_csq_results['picked_csq'] = None
+
+   ## IF multiple transcript-specific variant consequences highlighted by --pick_allele_gene , 
+   ## prioritize/choose block of consequence which has
+   ## - A gene with BIOTYPE equal to 'protein-coding' (the other picked transcript/gene may potentialy carry another BIOTYPE nature)
+   ## - A gene consequence classified as 'exonic' (the other picked transcript/gene likely carries a nonexonic consequence)
+   if len(vep_csq_results['picked_gene_csq']) > 0:
+      vep_selected_idx = {}
+      vep_selected_idx['exonic_status'] = {}
+      vep_selected_idx['consequence'] = {}
+
+      #if debug:
+         #print("Picked VEP blocks: " + str(vep_csq_results['picked_gene_csq']))
+
+      i = 0
+      picked_blocks = []
+      for trans_rec in vep_csq_results['picked_gene_csq']:
+
+         if debug:
+            biotype = '.'
+            consequence = '.'
+            exonic_status = '.'
+            genesymbol = '.'
+            distance = '.'
+            feature = '.'
+            if not trans_rec['Consequence'] is None:
+               consequence = trans_rec['Consequence']
+            if not trans_rec['SYMBOL'] is None:
+               genesymbol = trans_rec['SYMBOL']
+            if not trans_rec['BIOTYPE'] is None:
+               biotype = trans_rec['BIOTYPE']
+            if not trans_rec['EXONIC_STATUS'] is None:
+               exonic_status = trans_rec['EXONIC_STATUS']
+            if not trans_rec['DISTANCE'] is None:
+               distance = trans_rec['DISTANCE']
+            if not trans_rec['Feature'] is None:
+               feature = trans_rec['Feature']
+            block = str(genesymbol) + ':' + str(feature) + ':' + str(consequence) + ':' + str(distance) + ':' + str(biotype) + ':' + str(exonic_status)
+            picked_blocks.append(block)
+
+
+         if 'BIOTYPE' in trans_rec and 'Consequence' in trans_rec and 'EXONIC_STATUS' in trans_rec:
+            if not trans_rec['BIOTYPE'] is None and not trans_rec['Consequence'] is None:
+               if trans_rec['BIOTYPE'] == "protein_coding":
+                  ## for protein-coding genes - record the exonic variant consequence status (exonic/nonexonic)
+                  vep_selected_idx['exonic_status'][i] = trans_rec['EXONIC_STATUS']
+                  vep_selected_idx['consequence'][i] = trans_rec['Consequence']
+         i = i + 1
+
+      
+      if debug:
+         print(str(varkey) + " - picked CSQ blocks: " + ' /// '.join(picked_blocks))
+
+            
+      ## when multiple transcript gene blocks are picked by VEP, prioritize the block with 'exonic' consequence
+      if len(vep_selected_idx['exonic_status'].keys()) > 1:
+         exonic_cons_found = 0
+         for j in vep_selected_idx['exonic_status'].keys():
+            if vep_selected_idx['exonic_status'][j] == 'exonic':
+               exonic_cons_found = 1
+               vep_chosen_csq_idx = j
+
+         ## if multiple non-exonic variants are found, prioritize UTR variants over other nonexonic
+         if exonic_cons_found == 0:
+            for j in vep_selected_idx['consequence'].keys():
+               if vep_selected_idx['consequence'][j] == '5_prime_UTR_variant' or vep_selected_idx['consequence'][j] == '3_prime_UTR_variant':                  
+                  vep_chosen_csq_idx = j
+
+      else:
+         if len(vep_selected_idx['exonic_status'].keys()) == 1:
+            for k in vep_selected_idx['exonic_status'].keys():
+               vep_chosen_csq_idx = k
+      
+      vep_csq_results['picked_csq'] = vep_csq_results['picked_gene_csq'][vep_chosen_csq_idx]
+
+   else:
+      print('ERROR: No VEP block chosen by --pick_allele_gene')
 
    return(vep_csq_results)
+
+
+def read_cancer_hotspots(logger, hotspots_tsv):
+
+   ## load cancer hotspot entries from 'cancer_hotspots.tsv' (provided by github.com/sigven/cancerHotspots)
+
+   hotspots = {} ##dictionary returned
+   mutation_hotspots = {}
+   codon_hotspots = {}
+   splice_hotspots = {}
+   if not os.path.exists(hotspots_tsv):
+      logger.info("ERROR: File '" + str(hotspots_tsv) + "' does not exist - exiting")
+      exit(1)
+   tsvfile = open(hotspots_tsv, 'r')
+   reader = csv.DictReader(tsvfile, delimiter='\t')
+   for row in reader:
+      mutation_hotspots[str(row['entrezgene']) + '-' + row['hgvsp2']] = row
+      codon_hotspots[str(row['entrezgene']) + '-' + row['codon']] = row
+      if row['hgvsc'] != '.':
+         splice_hotspots[str(row['entrezgene']) + '-' + str(row['hgvsc'])] = row
+   tsvfile.close()
+
+   hotspots['mutation'] = mutation_hotspots
+   hotspots['codon'] = codon_hotspots
+   hotspots['splice'] = splice_hotspots
+   return hotspots
+
+
+def map_cancer_hotspots(transcript_csq_elements, cancer_hotspots, rec, principal_hgvsp, principal_hgvsc):
+
+   unique_hotspot_mutations = {}
+   unique_hotspot_codons = {}
+
+   principal_codon = '.'
+   if re.match(r'^(p.[A-Z]{1}[0-9]{1,}[A-Za-z]{1,})', principal_hgvsp):
+      codon_match = re.findall(r'[A-Z][0-9]{1,}',principal_hgvsp)
+      if len(codon_match) == 1:
+         principal_codon = codon_match[0]
+   
+   ## loop through all transcript-specific consequences ('csq_elements') for a given variant, check for the presence of
+   ## 1. Exonic, protein-altering mutations (dictionary key = entrezgene + hgvsp) that overlap known cancer hotspots (https://github.com/sigven/cancerHotspots)
+   ##    - assert whether a potentially hit reflects the principal hgvsp ('by_hgvsp_principal') or an alternative hgvsp ('by_hgvsp_nonprincipal')
+   ## 2. Splice site mutations (dictionary key = entrezgene + hgvsc) that overlap known cancer hotspots (NOTE: only a subset have been curated)
+   ##    - assert whether a potentially hit reflects the principal hgvsc ('by_hgvsc_principal') or an alternative hgvsc ('by_hgvsc_nonprincipal')
+
+   for csq in transcript_csq_elements:
+      (consequence, symbol, entrezgene, hgvsc, hgvsp, feature_type, feature, biotype) = csq.split(':')
+
+      if not bool(re.search(r'^(missense|stop|start|inframe|splice_donor|splice_acceptor|frameshift)', consequence)) is True:
+         continue
+
+      hgvsp_short = threeToOneAA(hgvsp)
+      hotspot_key_mutation = "."
+      codon_match = []
+      if entrezgene != "." and hgvsp != ".":
+         hotspot_key_mutation = str(entrezgene) + '-' + str(hgvsp_short)
+         codon_match = re.findall(r'p.[A-Z][0-9]{1,}',hgvsp_short)
+
+      if entrezgene != "." and (consequence == 'splice_donor_variant' or consequence == 'splice_acceptor_variant'):
+         hgvsc_key = re.sub(r'>(A|G|C|T)$','',hgvsc)
+         hotspot_key_mutation = str(entrezgene) + '-' + str(hgvsc_key)
+
+      if hotspot_key_mutation == ".":
+         continue
+
+      if hotspot_key_mutation in cancer_hotspots['mutation']:
+         hotspot_info = cancer_hotspots['mutation'][hotspot_key_mutation]['MUTATION_HOTSPOT2']
+         hotspot_info_ttype = cancer_hotspots['mutation'][hotspot_key_mutation]['MUTATION_HOTSPOT_CANCERTYPE']
+         unique_hotspot_mutations['exonic|' + str(hotspot_info)] = hotspot_info_ttype
+
+      if hotspot_key_mutation in cancer_hotspots['splice']:
+         hotspot_info = cancer_hotspots['splice'][hotspot_key_mutation]['MUTATION_HOTSPOT2']
+         hotspot_info_ttype = cancer_hotspots['splice'][hotspot_key_mutation]['MUTATION_HOTSPOT_CANCERTYPE']
+         unique_hotspot_mutations['splice|' + str(hotspot_info)] = hotspot_info_ttype
+
+               
+      if len(codon_match) > 0:
+         hotspot_key_codon = str(entrezgene) + '-' + str(codon_match[0])
+
+         if hotspot_key_codon in cancer_hotspots['codon']:            
+            unique_hotspot_codons[str('exonic|') + cancer_hotspots['codon'][hotspot_key_codon]['MUTATION_HOTSPOT2']] =  \
+               cancer_hotspots['codon'][hotspot_key_codon]['MUTATION_HOTSPOT_CANCERTYPE']
+         
+   if len(unique_hotspot_mutations.keys()) > 0:
+      if len(unique_hotspot_mutations.keys()) == 1:
+         for gene_mutation_key in unique_hotspot_mutations.keys():
+            rec.INFO['MUTATION_HOTSPOT'] = gene_mutation_key
+            rec.INFO['MUTATION_HOTSPOT_CANCERTYPE'] = unique_hotspot_mutations[gene_mutation_key]
+
+            if gene_mutation_key.split('|')[0] == 'exonic':
+               rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsp_nonprincipal'
+               hgvsp_candidate = 'p.' + str(gene_mutation_key.split('|')[3]) + str(gene_mutation_key.split('|')[4])
+               if hgvsp_candidate == principal_hgvsp:
+                  rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsp_principal'
+            else:
+               rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsc_nonprincipal'
+               hgvsc_candidate = re.sub(r'>(A|G|C|T){1,}$', '' , str(gene_mutation_key.split('|')[4]))
+               if hgvsc_candidate == principal_hgvsc:
+                  rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsc_principal'
+      else:
+         ## multiple hotspot matches for alternative hgvsp keys
+         ## - keep only match against principal HGVSp 
+         for hotspot_info in unique_hotspot_mutations.keys():
+            if hotspot_info.split('|')[0] == 'exonic':
+               hgvsp_candidate = "p." + str(hotspot_info.split('|')[3]) + str(hotspot_info.split('|')[4]) 
+
+               if hgvsp_candidate == principal_hgvsp:
+                  rec.INFO['MUTATION_HOTSPOT'] = hotspot_info
+                  rec.INFO['MUTATION_HOTSPOT_CANCERTYPE'] = unique_hotspot_mutations[hotspot_info]
+                  rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsp_principal'
+            else:
+               hgvsc_candidate = re.sub(r'>(A|G|C|T){1,}$', '' , str(hotspot_info.split('|')[4]))
+
+               if hgvsc_candidate == principal_hgvsc:
+                  rec.INFO['MUTATION_HOTSPOT'] = hotspot_info
+                  rec.INFO['MUTATION_HOTSPOT_CANCERTYPE'] = unique_hotspot_mutations[hotspot_info]
+                  rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_hgvsc_principal'
+
+   else:
+      if len(unique_hotspot_codons.keys()) > 0:
+         if len(unique_hotspot_codons.keys()) == 1:
+            for gene_codon_key in unique_hotspot_codons.keys():
+
+               if '|' in gene_codon_key:
+
+                  codon = str(gene_codon_key.split('|')[3])
+
+                  if codon == principal_codon:
+                     rec.INFO['MUTATION_HOTSPOT'] = gene_codon_key
+                     rec.INFO['MUTATION_HOTSPOT_CANCERTYPE'] = unique_hotspot_codons[gene_codon_key]
+                     rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_codon_principal'
+                  else:
+                     rec.INFO['MUTATION_HOTSPOT'] = gene_codon_key
+                     rec.INFO['MUTATION_HOTSPOT_CANCERTYPE'] = unique_hotspot_codons[gene_codon_key]
+                     rec.INFO['MUTATION_HOTSPOT_MATCH'] = 'by_codon_nonprincipal'
+
+
+   return
       
+
