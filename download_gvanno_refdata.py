@@ -33,6 +33,7 @@ def __main__():
    optional.add_argument('--force_overwrite', action = "store_true", help='By default, the script will fail with an error if any ' + \
       'download directory already exist.\nYou can force the overwrite of existing download directory by using this flag, default: %(default)s')
    optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
+   optional.add_argument('--clean_raw_files',action="store_true", help="Delete raw compressed tar files (i.e. VEP) after download and unzip + untar has been conducted successfully")
    optional.add_argument("--debug", action="store_true", help="Print full commands to log and do not delete intermediate files with warnings etc.")
    required.add_argument('--download_dir',help='Destination directory for downloaded reference data', required = True)
    required.add_argument('--genome_assembly',choices = ['grch37','grch38'], help='Choose build-specific reference data for download: grch37 or grch38', required = True)
@@ -232,42 +233,79 @@ def download_gvanno_ref_data(arg_dict):
    
    os.chdir(vep_assembly_dir)
    
-   command_unzip_cache = f"gzip -dc {datasets['vep_cache']['local_path']} | tar xvf -"
+   command_unzip_cache = f"gzip -dc {datasets['vep_cache']['local_path']} | tar xf -"
    check_subprocess(command = command_unzip_cache, logger = logger)
+   logger.info('VEP cache - finished unzip + untar ')
 
    ## change back to working directory
    os.chdir(wdir)
 
-   logger = getlogger('download-vep-fasta')
-   fasta_cache_bytes = get_url_num_bytes(url = datasets['vep_fasta']['remote_url'], logger = logger)
-   logger.info('VEP FASTA - remote target file: ' + str(datasets['vep_fasta']['remote_url']))
-   logger.info('VEP FASTA - size: ' + pretty_print(fasta_cache_bytes, logger = logger))
-   logger.info('VEP FASTA - local destination file: ' + str(datasets['vep_fasta']['local_path']))
-   logger.info('VEP FASTA - download in progress - this can take a while ...  ')
+   if arg_dict['clean_raw_files']:
+      logger.info('VEP cache - removing raw compressed tar ball')
+      rm_command = f"rm -f {datasets['vep_cache']['local_path']}"
+      check_subprocess(command = rm_command, logger = logger)
 
-   urllib2.urlretrieve(datasets['vep_fasta']['remote_url'], datasets['vep_fasta']['local_path'])
-   logger.info('VEP FASTA - unzip + bgzip')
+   logger = getlogger('download-vep-fasta')
+   fasta_cache_bytes_remote = get_url_num_bytes(url = datasets['vep_fasta']['remote_url'], logger = logger)
+   logger.info('VEP reference FASTA - remote target file: ' + str(datasets['vep_fasta']['remote_url']))
+   logger.info('VEP reference FASTA - size: ' + pretty_print(fasta_cache_bytes_remote, logger = logger))
+   logger.info('VEP reference FASTA - local destination file: ' + str(datasets['vep_fasta']['local_path']))
+
+   if os.path.exists(datasets['vep_fasta']['local_path']):
+      if os.path.getsize(datasets['vep_fasta']['local_path']) == fasta_cache_bytes_remote:
+         logger.info('VEP reference FASTA already downloaded')
+      else:
+         logger.info('VEP reference FASTA files - download in progress - this can take a while ...  ')
+         urllib2.urlretrieve(datasets['vep_fasta']['remote_url'], datasets['vep_fasta']['local_path'])
+   else:
+      logger.info('VEP reference FASTA files - download in progress - this can take a while ...  ')
+      urllib2.urlretrieve(datasets['vep_fasta']['remote_url'], datasets['vep_fasta']['local_path'])
+
+   logger.info('VEP reference FASTA - unzip + bgzip')
    command_unzip_fasta = f"gzip -d {datasets['vep_fasta']['local_path']}"
    check_subprocess(command = command_unzip_fasta, logger = logger)
    command_bgzip_fasta = f"bgzip {datasets['vep_fasta']['local_path_uncompressed']}"
    check_subprocess(command = command_bgzip_fasta, logger = logger)
 
+   
+
    datasets['gvanno_custom']['remote_url'] = f'{HOST_GVANNO_REFDATA_URL}gvanno.databundle.{arg_dict["genome_assembly"]}.{REFDATA_VERSION}.tgz'
    datasets['gvanno_custom']['local_path'] = os.path.join(arg_dict['download_dir'], f'gvanno.databundle.{arg_dict["genome_assembly"]}.{REFDATA_VERSION}.tgz')
 
    logger = getlogger('download-gvanno-custom')
-   custom_cache_bytes = get_url_num_bytes(url = datasets['gvanno_custom']['remote_url'], logger = logger)
+   custom_cache_bytes_remote = get_url_num_bytes(url = datasets['gvanno_custom']['remote_url'], logger = logger)
    logger.info("Downloading custom gvanno variant datasets:  Clinvar / dbNSFP / ncER / cancerhotspots ++")
    logger.info('Custom gvanno datasets - remote target file ' + str(datasets['gvanno_custom']['remote_url']))
-   logger.info('Custom gvanno datasets - size: ' + pretty_print(custom_cache_bytes, logger = logger))
+   logger.info('Custom gvanno datasets - size: ' + pretty_print(custom_cache_bytes_remote, logger = logger))
+   logger.info('Custom gvanno datasets - local destination file: ' + str(datasets['gvanno_custom']['local_path']))
 
-   urllib2.urlretrieve(datasets['gvanno_custom']['remote_url'], datasets['custom_gvanno']['local_path'])
+
+   if os.path.exists(datasets['gvanno_custom']['local_path']):
+      if os.path.getsize(datasets['gvanno_custom']['local_path']) == custom_cache_bytes_remote:
+         logger.info('Custom gvanno datasets already downloaded')
+      else:
+         logger.info('Custom gvanno datasets - download in progress - this can take a while ...  ')
+         urllib2.urlretrieve(datasets['gvanno_custom']['remote_url'], datasets['gvanno_custom']['local_path'])
+   else:
+      logger.info('Custom gvanno datasets - download in progress - this can take a while ...  ')
+      urllib2.urlretrieve(datasets['gvanno_custom']['remote_url'], datasets['gvanno_custom']['local_path'])
+
    logger.info('Custom gvanno datasets - unzip and untar')
    
    wdir = os.getcwd()
    os.chdir(arg_dict['download_dir'])
    
-   command_unzip_cache = f"gzip -dc {datasets['gvanno_custom']['local_path']} | tar xvf -"
+   command_unzip_cache = f"gzip -dc {datasets['gvanno_custom']['local_path']} | tar xf -"
+   check_subprocess(command = command_unzip_cache, logger = logger)
+   logger.info('Custom gvanno datasets - finished unzip and untar ')
+
+   ## change back to working directory
+   os.chdir(wdir)
+
+   if arg_dict['clean_raw_files']:
+      logger.info('Custom gvanno datasets - removing raw compressed tar ball')
+      rm_command = f"rm -f {datasets['gvanno_custom']['local_path']}"
+      check_subprocess(command = rm_command, logger = logger)
 
    logger.info('Finished')
    
