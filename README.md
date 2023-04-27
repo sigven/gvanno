@@ -81,9 +81,9 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1.  [Download the latest version](https://github.com/sigven/gvanno/releases/tag/v1.6.0)
+1.  [Download and unpack the latest release](https://github.com/sigven/gvanno/releases/tag/v1.6.0)
 
-2.  Download the assembly-specific VEP cache, and gvanno-specific reference data using the `download_gvanno_refdata.py` script, i.e.:
+2.  Install the assembly-specific VEP cache, and gvanno-specific reference data using the `download_gvanno_refdata.py` script, i.e.:
 
     -   `python download_gvanno_refdata.py --download_dir <PATH_TO_DOWNLOAD_DIR> --genome_assembly grch38`
 
@@ -121,7 +121,7 @@ Required arguments:
 --query_vcf QUERY_VCF
                 VCF input file with germline query variants (SNVs/InDels).
 --gvanno_dir GVANNO_DIR
-                Directory that contains the gvanno data bundle, e.g. ~/gvanno-1.6.0
+                Directory that contains the gvanno reference data, e.g. ~/gvanno-1.6.0
 --output_dir OUTPUT_DIR
                 Output directory
 --genome_assembly {grch37,grch38}
