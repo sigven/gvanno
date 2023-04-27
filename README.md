@@ -10,13 +10,13 @@
 -   [Getting started](#getting-started)
 -   [Contact](#contact)
 
-### Overview {#overview}
+### Overview
 
 The generic variant annotator (*gvanno*) is a software package intended for simple analysis and interpretation of human DNA variants. Variants and genes are annotated with disease-related and functional associations. Technically, the workflow is built with the [Docker](https://www.docker.com) technology, and it can also be installed through the [Singularity](https://sylabs.io/docs/) framework.
 
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short insertions or deletions (indels). The workflow relies heavily upon [Ensembl's Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record **per sample variant**.
 
-### News {#news}
+### News 
 
 -   April 27th 2023 - **1.6.0 release**
 
@@ -39,7 +39,7 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 -   [Mutation hotspots](cancerhotspots.org) - Database of mutation hotspots in cancer
 -   [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (March 27th 2023)
 
-### Getting started {#getting-started}
+### Getting started
 
 #### STEP 0: Prerequisites
 
@@ -186,6 +186,6 @@ Similar files are produced for all variants, not only variants with a *PASS* des
 
 Documentation of the various variant and gene annotations should be interrogated from the header of the annotated VCF file. The column names of the tab-separated values (TSV) file will be identical to the INFO tags that are documented in the VCF file.
 
-### Contact {#contact}
+### Contact
 
 sigven AT ifi.uio.no
