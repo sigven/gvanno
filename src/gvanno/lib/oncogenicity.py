@@ -398,7 +398,7 @@ def assign_oncogenicity_evidence(rec = None, tumortype = "Any"):
    b_upper_limit = -7
    #vus_lower_limit = 0
    #vus_upper_limit = 4
-   lo_lower_limit = 5
+   lo_lower_limit = 6
    lo_upper_limit = 9
    o_lower_limit = 10
 

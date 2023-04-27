@@ -7,6 +7,7 @@ import subprocess
 import logging
 import sys
 import locale
+import errno
 #import wget
 import urllib.request as urllib2
 from argparse import RawTextHelpFormatter
@@ -67,6 +68,13 @@ def __main__():
 
    download_gvanno_ref_data(arg_dict = arg_dict)
 
+
+def rm_file(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
 
 def gvanno_error_message(message, logger):
    logger.error('')
@@ -242,8 +250,7 @@ def download_gvanno_ref_data(arg_dict):
 
    if arg_dict['clean_raw_files']:
       logger.info('VEP cache - removing raw compressed tar ball')
-      rm_command = f"rm -f {datasets['vep_cache']['local_path']}"
-      check_subprocess(command = rm_command, logger = logger)
+      rm_file({datasets['vep_cache']['local_path']})
 
    logger = getlogger('download-vep-fasta')
    fasta_cache_bytes_remote = get_url_num_bytes(url = datasets['vep_fasta']['remote_url'], logger = logger)
@@ -304,8 +311,7 @@ def download_gvanno_ref_data(arg_dict):
 
    if arg_dict['clean_raw_files']:
       logger.info('Custom gvanno datasets - removing raw compressed tar ball')
-      rm_command = f"rm -f {datasets['gvanno_custom']['local_path']}"
-      check_subprocess(command = rm_command, logger = logger)
+      rm_file({datasets['gvanno_custom']['local_path']})
 
    logger.info('Finished')
    

@@ -22,7 +22,7 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
     -   Added option `--oncogenicity_annotation` - classifies variants according to oncogenicity ([Horak et al., Genet Med, 2022](https://pubmed.ncbi.nlm.nih.gov/35101336/))
     -   Data updates: ClinVar, GENCODE, GWAS catalog, CancerMine
-    -   Excluded Open Targets Platform from annotation
+    -   Excluded extensive disease associations from the Open Targets Platform
 
 -   September 26th 2022 - **1.5.1 release**
 
@@ -49,7 +49,9 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
 -   *Other utilities*
 
-    The downloading and unpacking of the reference data requires that the user has `bgzip` + `tabix` installed. See [here](http://www.htslib.org/download/) for instructions
+    The script that installs the reference data requires that the user has `bgzip` installed. See [here](http://www.htslib.org/download/) for instructions. The script also requires that basic Linux/UNIX commands are available (i.e. `gzip`, `tar`)
+    
+    **NOTE**: We strongly recommend that _gvanno_ is installed on a MacOS or Linux/UNIX operating system
 
 #### STEP 1: Installation of Docker
 
@@ -63,7 +65,7 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
     -   CPUs: minimum 4
     -   [How to - Mac OS X](https://docs.docker.com/docker-for-mac/#advanced)
 
-##### 1.1: Installation of Singularity (optional - in dev)
+##### 1.1: Installation of Singularity (_IN DEVELOPMENT_)
 
 0.  **Note: this works for Singularity version 3.0 and higher**.
 
