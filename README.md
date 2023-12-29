@@ -34,8 +34,8 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
 ### Annotation resources (v1.7.0)
 
--   [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v109 (GENCODE v44/v19 as the gene reference dataset)
--   [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.5, October 2023)
+-   [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v110 (GENCODE v44/v19 as the gene reference dataset)
+-   [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.5, November 2023)
 -   [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
 -   [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 154) - from VEP
 -   [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (December 2023)
@@ -97,7 +97,7 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 	    * `docker pull sigven/gvanno:1.7.0` (gvanno annotation engine)
 
     * Singularity
-         * Download the [gvanno SIF image  (v1.7.0)_](https://insilico.hpc.uio.no/pcgr/gvanno/gvanno_1.7.0.sif) (approx 1.3Gb) and use this as the argument for `--sif_file` in the `gvanno.py` run script.
+         * Download the [gvanno SIF image  (v1.7.0)](https://insilico.hpc.uio.no/pcgr/gvanno/gvanno_1.7.0.sif) (approx 1.2Gb) and use this as the argument for `--sif_file` in the `gvanno.py` run script.
 
 
 
@@ -200,8 +200,8 @@ python ~/gvanno-1.7.0/gvanno.py
 
 This command will run the Docker-based *gvanno* workflow and produce the following output files in the *examples* folder:
 
-1.  **example_gvanno_grch37.pass.vcf.gz (.tbi)** - Bgzipped VCF file with rich set of functional/clinical annotations
-2.  **example_gvanno_grch37.pass.tsv.gz** - Compressed TSV file with rich set of functional/clinical annotations
+1.  **example_gvanno_grch37.pass.vcf.gz (.tbi)** - Bgzipped VCF file with rich set of functional/clinical variant and gene annotations
+2.  **example_gvanno_grch37.pass.tsv.gz** - Compressed TSV file with rich set of functional/clinical variant and gene annotations
 
 Similar files are produced for all variants, not only variants with a *PASS* designation in the VCF FILTER column.
 
