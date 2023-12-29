@@ -89,11 +89,15 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
     **NOTE**: This can take a considerable amount of time depending on your local bandwidth (approx 20Gb pr. assembly-specific bundle)
 
 
-3.  Pull the [gvanno Docker image (v1.7.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 3.8Gb):
+3.  Pull container images
 
-    -   `docker pull sigven/gvanno:1.7.0` (gvanno annotation engine)
+    * Docker
+	    * Pull the [gvanno Docker image (v1.7.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 3.8Gb):
 
-4. If you want to run the workflow with Singularity, download the [gvanno SIF image  (v1.7.0)_](https://insilico.hpc.uio.no/pcgr/gvanno/gvanno_1.7.0.sif) and use this as the argument for `--sif_file` in the `gvanno.py` run script.
+	    * `docker pull sigven/gvanno:1.7.0` (gvanno annotation engine)
+
+    * Singularity
+         * Download the [gvanno SIF image  (v1.7.0)_](https://insilico.hpc.uio.no/pcgr/gvanno/gvanno_1.7.0.sif) (approx 1.3Gb) and use this as the argument for `--sif_file` in the `gvanno.py` run script.
 
 
 
