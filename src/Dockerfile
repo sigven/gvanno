@@ -1,3 +1,4 @@
+ARG BRANCH=release/110
 
 ###################################################
 # Stage 1 - docker container to build ensembl-vep #
@@ -23,7 +24,7 @@ RUN apt-get update && apt-get -y install \
 ENV OPT /opt/vep
 ENV OPT_SRC $OPT/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV BRANCH=release/109
+ARG BRANCH
 
 # Working directory
 WORKDIR $OPT_SRC
@@ -100,7 +101,6 @@ RUN apt-get update && apt-get -y install \
     perl \
     perl-base \
     unzip \
-    wget \
     vim && \
     apt-get -y purge manpages-dev && \
     apt-get clean && \
@@ -113,10 +113,10 @@ ENV PERL5LIB_TMP $PERL5LIB:$OPT_SRC/ensembl-vep:$OPT_SRC/ensembl-vep/modules
 ENV PERL5LIB $PERL5LIB_TMP:$OPT_SRC/bioperl-live
 ENV KENT_SRC $OPT/src/kent-335_base/src
 ENV HTSLIB_DIR $OPT_SRC/htslib
-ENV MACHTYPE x86_64
 ENV DEPS $OPT_SRC
 ENV PATH $OPT_SRC/ensembl-vep:$OPT_SRC/var_c_code:$PATH
 ENV LANG_VAR en_US.UTF-8
+ARG BRANCH
 
 # Create vep user
 RUN useradd -r -m -U -d "$OPT" -s /bin/bash -c "VEP User" -p '' vep && usermod -a -G sudo vep && mkdir -p $OPT_SRC
@@ -139,7 +139,8 @@ RUN perl Makefile.PL && make && make install && rm -f Makefile* cpanfile
 
 WORKDIR $OPT_SRC
 # Install/compile more libraries
-RUN ensembl-vep/travisci/build_c.sh && \
+RUN export MACHTYPE=$(uname -m) &&\
+    ensembl-vep/travisci/build_c.sh && \
     # Remove unused Bio-DB-HTS files
     rm -rf Bio-HTS/cpanfile Bio-HTS/Build.PL Bio-HTS/Build Bio-HTS/_build Bio-HTS/INSTALL.pl && \
     # Install ensembl perl dependencies (cpanm)
@@ -151,7 +152,9 @@ RUN ensembl-vep/travisci/build_c.sh && \
     echo "$LANG_VAR UTF-8" >> /etc/locale.gen && locale-gen en_US.utf8 && \
     /usr/sbin/update-locale LANG=$LANG_VAR && \
     # Copy htslib executables. It also requires the packages 'zlib1g-dev', 'libbz2-dev' and 'liblzma-dev'
-    cp $HTSLIB_DIR/bgzip $HTSLIB_DIR/tabix $HTSLIB_DIR/htsfile /usr/local/bin/
+    cp $HTSLIB_DIR/bgzip $HTSLIB_DIR/tabix $HTSLIB_DIR/htsfile /usr/local/bin/ && \
+    # Remove CPAN cache
+    rm -rf /root/.cpanm
 
 ENV LC_ALL $LANG_VAR
 ENV LANG $LANG_VAR
@@ -160,43 +163,32 @@ ENV LANG $LANG_VAR
 USER vep
 ENV PERL5LIB $PERL5LIB_TMP
 
-
-USER vep
-ENV PERL5LIB $PERL5LIB_TMP
+# Setup Docker environment for when users run VEP and INSTALL.pl in Docker image:
+#   - skip VEP updates in INSTALL.pl
+ENV VEP_NO_UPDATE 1
+#   - avoid Faidx/HTSLIB installation in INSTALL.pl
+ENV VEP_NO_HTSLIB 1
+#   - skip plugin installation in INSTALL.pl
+ENV VEP_NO_PLUGINS 1
+#   - set plugins directory for VEP and INSTALL.pl
+ENV VEP_DIR_PLUGINS /plugins
+ENV VEP_PLUGINSDIR $VEP_DIR_PLUGINS
+WORKDIR $VEP_DIR_PLUGINS
 
 WORKDIR /
 ADD loftee_1.0.3.tgz $OPT/src/ensembl-vep/modules
 ADD UTRannotator.tgz $OPT/src/ensembl-vep/modules
 ADD NearestExonJB.pm $OPT/src/ensembl-vep/modules
-#RUN wget -q "https://raw.githubusercontent.com/Ensembl/VEP_plugins/$BRANCH/NearestExonJB.pm" -O $OPT/src/ensembl-vep/modules/NearestExonJB.pm
 
-
-# Final steps
-WORKDIR $OPT_SRC/ensembl-vep
 # Update bash profile
+WORKDIR $OPT_SRC/ensembl-vep
 RUN echo >> $OPT/.profile && \
     echo PATH=$PATH:\$PATH >> $OPT/.profile && \
     echo export PATH >> $OPT/.profile && \
-    # Run INSTALL.pl and remove the ensemb-vep tests and travis
-    ./INSTALL.pl -a a -l -n && rm -rf t travisci .travis.yml
-
-
-# Install dependencies for VEP plugins:
-#USER root
-#ENV PLUGIN_DEPS "https://raw.githubusercontent.com/Ensembl/VEP_plugins/$BRANCH/config"
-##   - Ubuntu packages
-#RUN curl -O "$PLUGIN_DEPS/ubuntu-packages.txt" && \
-#    apt-get update && apt-get install -y --no-install-recommends \
-#    $(sed s/\#.*//g ubuntu-packages.txt) && \
-#    rm -rf /var/lib/apt/lists/* ubuntu-packages.txt
-##   - Perl modules
-#RUN curl -O "$PLUGIN_DEPS/cpanfile" && \
-#    cpanm --installdeps --with-recommends . && \
-#    rm -rf /root/.cpanm cpanfile
-##   - Python packages
-#RUN curl -O "$PLUGIN_DEPS/requirements.txt" && \
-#    python -m pip install --no-cache-dir -r requirements.txt && \
-#    rm requirements.txt
+    # Install Ensembl API and plugins
+    ./INSTALL.pl --auto ap --plugins all --pluginsdir $VEP_DIR_PLUGINS --no_update --no_htslib && \
+    # Remove the ensemb-vep tests and travis
+    rm -rf t travisci .travis.yml
 
 ######################################################
 # Stage 3 - adding dependencies for gvanno analysis  #
@@ -210,17 +202,15 @@ RUN apt-get update \
   && ln -s /usr/bin/python3 python \
   && pip3 install --upgrade pip
 
-RUN apt-get update && apt-get -y install apache2 apt-utils build-essential cpanminus curl git libmysqlclient-dev libpng-dev libssl-dev manpages mysql-client openssl perl perl-base unzip vim wget sudo
+RUN apt-get update && apt-get -y install apache2 apt-utils build-essential curl git libpng-dev libssl-dev manpages openssl unzip vim wget sudo
 # install ensembl dependencies
-RUN cpanm Test::Object PPI::Document Task::Weaken Test::SubCalls Test::Object DBI DBD::mysql Archive::Zip Perl::Critic Set::IntervalTree
-RUN apt-get update && apt-get install apt-transport-https
 
 USER root
 WORKDIR /
 
 ENV PACKAGE_BIO="libhts2 bedtools"
 ENV PACKAGE_DEV="gfortran gcc-multilib autoconf liblzma-dev libncurses5-dev libblas-dev liblapack-dev libssh2-1-dev libxml2-dev vim libssl-dev libcairo2-dev libbz2-dev libcurl4-openssl-dev"
-ENV PYTHON_MODULES="numpy==1.19.2 cython==0.29.21 scipy==1.5.3 pandas==1.1.3 cyvcf2==0.20.9"
+ENV PYTHON_MODULES="numpy cython scipy pandas cyvcf2"
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		nano ed locales vim-tiny fonts-texgyre \
@@ -229,16 +219,11 @@ RUN apt-get update \
 
 RUN apt-get autoremove
 
-## Install vcfanno version v0.3.2
-RUN wget https://github.com/brentp/vcfanno/releases/download/v0.3.2/vcfanno_linux64 && \
+## Install vcfanno version v0.3.5
+RUN wget https://github.com/brentp/vcfanno/releases/download/v0.3.5/vcfanno_linux64 && \
     mv vcfanno_linux64 vcfanno && \
     mv vcfanno /usr/local/bin && \
     chmod 755 /usr/local/bin/vcfanno
-
-## Install Ensembl's Vcf-validator
-RUN wget https://github.com/EBIvariation/vcf-validator/releases/download/v0.9.3/vcf_validator_linux && \
-mv vcf_validator_linux /usr/local/bin/vcf_validator && \
-chmod 755 /usr/local/bin/vcf_validator
 
 USER root
 WORKDIR /
@@ -259,20 +244,22 @@ RUN apt-get update \
 
 USER root
 WORKDIR /
+USER root
 
 ## vt - variant tool set + vcf2tsvpy - install using Conda
 ## primary use of vt in GVANNO: decomposition of multiallelic variants in a VCF file
 
 # install Conda
-RUN wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh \
+RUN wget http://repo.continuum.io/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh -O miniconda.sh \
     && chmod 0755 miniconda.sh
 RUN ["/bin/bash", "-c", "/miniconda.sh -b -p /conda"]
 RUN rm miniconda.sh
 
 # update conda & install vt + vcf2tsvpy
-RUN /conda/bin/conda update conda
-RUN /conda/bin/conda update python
-RUN /conda/bin/conda install -c bioconda vt vcf2tsvpy python=3.6
+#RUN /conda/bin/conda update conda
+#RUN /conda/bin/conda update python
+#RUN /conda/bin/conda install python=3.6
+RUN /conda/bin/conda install -c bioconda vt vcf2tsvpy bcftools
 
 ## Clean Up
 RUN apt-get clean autoclean

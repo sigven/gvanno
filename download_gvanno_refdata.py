@@ -8,16 +8,16 @@ import logging
 import sys
 import locale
 import errno
-#import wget
 import urllib.request as urllib2
 from argparse import RawTextHelpFormatter
 
-GVANNO_VERSION = '1.6.0'
-REFDATA_VERSION = '20230425'
-ENSEMBL_VERSION = '109'
-GENCODE_VERSION = 'v43'
+GVANNO_VERSION = '1.7.0'
+REFDATA_VERSION = '20231224'
+ENSEMBL_VERSION = '110'
+GENCODE_VERSION = 'v44'
 VEP_ASSEMBLY = "GRCh38"
 HOST_GVANNO_REFDATA_URL = "http://insilico.hpc.uio.no/pcgr/gvanno/"
+HOST_HUMAN_ANCESTOR = "https://personal.broadinstitute.org/konradk/loftee_data/"
 
 def __main__():
    
@@ -35,7 +35,7 @@ def __main__():
       'download directory already exist.\nYou can force the overwrite of existing download directory by using this flag, default: %(default)s')
    optional.add_argument('--version', action='version', version='%(prog)s ' + str(GVANNO_VERSION))
    optional.add_argument('--clean_raw_files',action="store_true", help="Delete raw compressed tar files (i.e. VEP) after download and unzip + untar has been conducted successfully")
-   optional.add_argument("--debug", action="store_true", help="Print full commands to log and do not delete intermediate files with warnings etc.")
+   optional.add_argument('--debug', action="store_true", help="Print full commands to log and do not delete intermediate files with warnings etc.")
    required.add_argument('--download_dir',help='Destination directory for downloaded reference data', required = True)
    required.add_argument('--genome_assembly',choices = ['grch37','grch38'], help='Choose build-specific reference data for download: grch37 or grch38', required = True)
 
@@ -64,7 +64,6 @@ def __main__():
    if not os.path.isdir(arg_dict['db_assembly_dir']):
       os.mkdir(arg_dict['db_assembly_dir'])
       os.mkdir(arg_dict['vep_assembly_dir'])
-
 
    download_gvanno_ref_data(arg_dict = arg_dict)
 
@@ -190,7 +189,7 @@ def download_gvanno_ref_data(arg_dict):
    vep_assembly_dir = os.path.join(os.path.abspath(arg_dict['download_dir']),'data',arg_dict['genome_assembly'], '.vep')
    
    datasets = {}
-   for db in ['vep_cache','vep_fasta','gvanno_custom']:
+   for db in ['vep_cache','vep_fasta','gvanno_custom','human_ancestor']:
       datasets[db] = {}
       datasets[db]['remote_url'] = 'NA'
       datasets[db]['local_path'] = 'NA'
@@ -208,8 +207,10 @@ def download_gvanno_ref_data(arg_dict):
       )
    
    logger = getlogger('download-vep-cache')
-   datasets['vep_cache']['local_path'] = os.path.join(arg_dict['vep_assembly_dir'], f"homo_sapiens_vep_{ENSEMBL_VERSION}_{VEP_ASSEMBLY}.tar.gz")
-   datasets['vep_fasta']['local_path'] = os.path.join(arg_dict['vep_assembly_dir'], "homo_sapiens", f"{ENSEMBL_VERSION}_{VEP_ASSEMBLY}", f"Homo_sapiens.{VEP_ASSEMBLY}.dna.primary_assembly.fa.gz")
+   datasets['vep_cache']['local_path'] = os.path.join(
+      arg_dict['vep_assembly_dir'], f"homo_sapiens_vep_{ENSEMBL_VERSION}_{VEP_ASSEMBLY}.tar.gz")
+   datasets['vep_fasta']['local_path'] = os.path.join(
+      arg_dict['vep_assembly_dir'], "homo_sapiens", f"{ENSEMBL_VERSION}_{VEP_ASSEMBLY}", f"Homo_sapiens.{VEP_ASSEMBLY}.dna.primary_assembly.fa.gz")
    datasets['vep_fasta']['local_path_uncompressed'] = re.sub(r'.gz','',datasets['vep_fasta']['local_path'])
 
    vep_cache_bytes_remote = get_url_num_bytes(url = datasets['vep_cache']['remote_url'], logger = logger)
@@ -273,15 +274,38 @@ def download_gvanno_ref_data(arg_dict):
    check_subprocess(command = command_unzip_fasta, logger = logger)
    command_bgzip_fasta = f"bgzip {datasets['vep_fasta']['local_path_uncompressed']}"
    check_subprocess(command = command_bgzip_fasta, logger = logger)
-
    
+   logger = getlogger('download-human-ancestor')
+   logger.info("Downloading human ancestor FASTA files")
+   for postfix in ['gz', 'gz.fai', 'gz.gzi']:
+      datasets['human_ancestor']['remote_url'] = f'{HOST_HUMAN_ANCESTOR}{VEP_ASSEMBLY}/human_ancestor.fa.{postfix}'
+      datasets['human_ancestor']['local_path'] = os.path.join(
+         arg_dict['vep_assembly_dir'], "homo_sapiens", f"{ENSEMBL_VERSION}_{VEP_ASSEMBLY}", f'human_ancestor.fa.{postfix}')
 
+      logger = getlogger('download-human-ancestor')
+      custom_cache_bytes_remote = get_url_num_bytes(url = datasets['human_ancestor']['remote_url'], logger = logger)
+      logger.info('Human ancestor FASTA - remote target file ' + str(datasets['human_ancestor']['remote_url']))
+      logger.info('Human ancestor FASTA - size: ' + pretty_print(custom_cache_bytes_remote, logger = logger))
+      logger.info('Human ancestor FASTA - local destination file: ' + str(datasets['human_ancestor']['local_path']))
+
+
+      if os.path.exists(datasets['human_ancestor']['local_path']):
+         if os.path.getsize(datasets['human_ancestor']['local_path']) == custom_cache_bytes_remote:
+            logger.info('Human ancestor FASTA already downloaded')
+         else:
+            logger.info('Human ancestor FASTA - download in progress - this can take a while ...  ')
+            urllib2.urlretrieve(datasets['human_ancestor']['remote_url'], datasets['human_ancestor']['local_path'])
+      else:
+         logger.info('Human ancestor FASTA - download in progress - this can take a while ...  ')
+         urllib2.urlretrieve(datasets['human_ancestor']['remote_url'], datasets['human_ancestor']['local_path'])
+      
+   
    datasets['gvanno_custom']['remote_url'] = f'{HOST_GVANNO_REFDATA_URL}gvanno.databundle.{arg_dict["genome_assembly"]}.{REFDATA_VERSION}.tgz'
    datasets['gvanno_custom']['local_path'] = os.path.join(arg_dict['download_dir'], f'gvanno.databundle.{arg_dict["genome_assembly"]}.{REFDATA_VERSION}.tgz')
 
    logger = getlogger('download-gvanno-custom')
    custom_cache_bytes_remote = get_url_num_bytes(url = datasets['gvanno_custom']['remote_url'], logger = logger)
-   logger.info("Downloading custom gvanno variant datasets:  Clinvar / dbNSFP / ncER / cancerhotspots ++")
+   logger.info("Downloading custom gvanno variant datasets:  Clinvar / dbNSFP / ncER / GWAS catalog / cancerhotspots ++")
    logger.info('Custom gvanno datasets - remote target file ' + str(datasets['gvanno_custom']['remote_url']))
    logger.info('Custom gvanno datasets - size: ' + pretty_print(custom_cache_bytes_remote, logger = logger))
    logger.info('Custom gvanno datasets - local destination file: ' + str(datasets['gvanno_custom']['local_path']))

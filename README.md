@@ -12,11 +12,15 @@
 
 ### Overview
 
-The generic variant annotator (*gvanno*) is a software package intended for simple analysis and interpretation of human DNA variants. Variants and genes are annotated with disease-related and functional associations. Technically, the workflow is built with the [Docker](https://www.docker.com) technology, and it can also be installed through the [Singularity](https://sylabs.io/docs/) framework.
+The generic variant annotator (*gvanno*) is a software package intended for simple analysis and interpretation of human DNA variants. Variants and genes are annotated with disease-related and functional associations. Technically, the workflow is developed in Python, and it relies upon [Docker](https://www.docker.com) / [Singularity](https://sylabs.io/docs/) technology for encapsulation of software dependencies.
 
 *gvanno* accepts query files encoded in the VCF format, and can analyze both SNVs and short insertions or deletions (indels). The workflow relies heavily upon [Ensembl's Variant Effect Predictor (VEP)](http://www.ensembl.org/info/docs/tools/vep/index.html), and [vcfanno](https://github.com/brentp/vcfanno). It produces an annotated VCF file and a file of tab-separated values (.tsv), the latter listing all annotations pr. variant record. Note that if your input VCF contains data (genotypes) from multiple samples (i.e. a multisample VCF), the output TSV file will contain one line/record **per sample variant**.
 
-### News 
+### News
+-   December 29th 2023 - **1.7.0 release**
+    - Data updates: ClinVar, GENCODE, GWAS catalog
+    - Software updates: VEP
+    - Improved Singularity support
 
 -   April 27th 2023 - **1.6.0 release**
 
@@ -28,16 +32,16 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
     -   Added option `--vep_coding_only` - only report variants that fall into coding regions of transcripts (VEP option `--coding_only`)
 
-### Annotation resources (v1.6.0)
+### Annotation resources (v1.7.0)
 
--   [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v109 (GENCODE v43/v19 as the gene reference dataset)
--   [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.2, March 2021)
+-   [VEP](http://www.ensembl.org/info/docs/tools/vep/index.html) - Variant Effect Predictor v110 (GENCODE v44/v19 as the gene reference dataset)
+-   [dBNSFP](https://sites.google.com/site/jpopgen/dbNSFP) - Database of non-synonymous functional predictions (v4.5, November 2023)
 -   [gnomAD](http://gnomad.broadinstitute.org/) - Germline variant frequencies exome-wide (release 2.1, October 2018) - from VEP
 -   [dbSNP](http://www.ncbi.nlm.nih.gov/SNP/) - Database of short genetic variants (build 154) - from VEP
--   [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (April 2023)
+-   [ClinVar](http://www.ncbi.nlm.nih.gov/clinvar/) - Database of variants related to human health/disease phenotypes (December 2023)
 -   [CancerMine](http://bionlp.bcgsc.ca/cancermine/) - literature-mined database of drivers, oncogenes and tumor suppressors in cancer (version 50, March 2023)
 -   [Mutation hotspots](cancerhotspots.org) - Database of mutation hotspots in cancer
--   [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (March 27th 2023)
+-   [NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/home) - Catalog of published genome-wide association studies (November 2023)
 
 ### Getting started
 
@@ -49,11 +53,15 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
 
 -   *Other utilities*
 
-    The script that installs the reference data requires that the user has `bgzip` installed. See [here](http://www.htslib.org/download/) for instructions. The script also requires that basic Linux/UNIX commands are available (i.e. `gzip`, `tar`)
-    
-    **NOTE**: We strongly recommend that _gvanno_ is installed on a MacOS or Linux/UNIX operating system
+    The script that installs the reference data requires that the user has `bgzip` and `tabix` installed. See [here](http://www.htslib.org/download/) for instructions. The script also requires that basic Linux/UNIX commands are available (i.e. `gzip`, `tar`)
 
-#### STEP 1: Installation of Docker
+    **NOTE**: _gvanno_ should be installed on a MacOS or Linux/UNIX operating system
+
+#### STEP 1: Installation of Docker/Singularity
+
+- the _gvanno_ workflow can be executed with either _Docker_ or _Singularity_ container technology
+
+##### Installation of Docker
 
 1.  [Install the Docker engine](https://docs.docker.com/engine/installation/) on your preferred platform
     -   installing [Docker on Linux](https://docs.docker.com/engine/installation/linux/)
@@ -65,33 +73,33 @@ The generic variant annotator (*gvanno*) is a software package intended for simp
     -   CPUs: minimum 4
     -   [How to - Mac OS X](https://docs.docker.com/docker-for-mac/#advanced)
 
-##### 1.1: Installation of Singularity (_IN DEVELOPMENT_)
-
-0.  **Note: this works for Singularity version 3.0 and higher**.
+##### Installation of Singularity
 
 1.  [Install Singularity](https://sylabs.io/docs/)
 
-2.  Test that singularity works by running `singularity --version`
-
-3.  If you are in the gvanno directory, build the singularity image like so:
-
-    `cd src`
-
-    `sudo ./buildSingularity.sh`
 
 #### STEP 2: Download *gvanno* and data bundle
 
-1.  [Download and unpack the latest release](https://github.com/sigven/gvanno/releases/tag/v1.6.0)
+1.  [Download and unpack the latest release](https://github.com/sigven/gvanno/releases/tag/v1.7.0)
 
 2.  Install the assembly-specific VEP cache, and gvanno-specific reference data using the `download_gvanno_refdata.py` script, i.e.:
 
     -   `python download_gvanno_refdata.py --download_dir <PATH_TO_DOWNLOAD_DIR> --genome_assembly grch38`
 
-    **NOTE**: This can take a considerable amount of time depending on your local bandwidth (approx 30Gb pr. assembly-specific bundle)
+    **NOTE**: This can take a considerable amount of time depending on your local bandwidth (approx 20Gb pr. assembly-specific bundle)
 
-3.  Pull the [gvanno Docker image (1.6.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 4.11Gb):
 
-    -   `docker pull sigven/gvanno:1.6.0` (gvanno annotation engine)
+3.  Pull container images
+
+    * Docker
+	    * Pull the [gvanno Docker image (v1.7.0)](https://hub.docker.com/r/sigven/gvanno/) from DockerHub (approx 3.8Gb):
+
+	    * `docker pull sigven/gvanno:1.7.0` (gvanno annotation engine)
+
+    * Singularity
+         * Download the [gvanno SIF image  (v1.7.0)](https://insilico.hpc.uio.no/pcgr/gvanno/gvanno_1.7.0.sif) (approx 1.2Gb) and use this as the argument for `--sif_file` in the `gvanno.py` run script.
+
+
 
 #### STEP 3: Input preprocessing
 
@@ -105,7 +113,7 @@ We **strongly** recommend that the input VCF is compressed and indexed using [bg
 
 Run the workflow with **gvanno.py**, which takes the following arguments and options:
 
-```         
+```
 usage:
 gvanno.py -h [options]
 --query_vcf <QUERY_VCF>
@@ -121,7 +129,7 @@ Required arguments:
 --query_vcf QUERY_VCF
                 VCF input file with germline query variants (SNVs/InDels).
 --gvanno_dir GVANNO_DIR
-                Directory that contains the gvanno reference data, e.g. ~/gvanno-1.6.0
+                Directory that contains the gvanno reference data, e.g. ~/gvanno-1.7.0
 --output_dir OUTPUT_DIR
                 Output directory
 --genome_assembly {grch37,grch38}
@@ -132,9 +140,9 @@ Required arguments:
                 Sample identifier - prefix for output files
 
 VEP optional arguments:
---vep_regulatory      Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).
---vep_gencode_all     Consider all GENCODE transcripts with Variant Effect Predictor (VEP) (option --gencode_basic in VEP is used by default in gvanno).
---vep_lof_prediction  Predict loss-of-function variants with Loftee plugin in Variant Effect Predictor (VEP), default: False
+--vep_regulatory        Enable Variant Effect Predictor (VEP) to look for overlap with regulatory regions (option --regulatory in VEP).
+--vep_gencode_basic     Consider only basic GENCODE transcripts with Variant Effect Predictor (VEP).
+--vep_lof_prediction    Predict loss-of-function variants with the LOFTEE plugin in Variant Effect Predictor (VEP), default: False
 --vep_n_forks VEP_N_FORKS
                 Number of forks for Variant Effect Predictor (VEP) processing, default: 4
 --vep_buffer_size VEP_BUFFER_SIZE
@@ -143,7 +151,7 @@ VEP optional arguments:
 --vep_pick_order VEP_PICK_ORDER
                 Comma-separated string of ordered transcript properties for primary variant pick in
                 Variant Effect Predictor (VEP) processing, default: canonical,appris,biotype,ccds,rank,tsl,length,mane
---vep_skip_intergenic
+--vep_no_intergenic
                 Skip intergenic variants in Variant Effect Predictor (VEP) processing, default: False
 --vep_coding_only
           Only report variants falling into coding regions of transcripts (VEP), default: False
@@ -160,25 +168,40 @@ Other optional arguments:
 --oncogenicity_annotation
                     Classify variants according to oncogenicity (Horak et al., Genet Med, 2022)
 --debug             Print full Docker/Singularity commands to log and do not delete intermediate files with warnings etc.
+--sif_file		gvanno SIF image file for usage of gvanno workflow with option '--container singularity'
 ```
 
-The *examples* folder contains an example VCF file. Analysis of the example VCF can be performed by the following command:
+The *examples* folder contains an example VCF file. Analysis of the example VCF can be performed by the following command (Docker-based):
 
-```         
-python ~/gvanno-1.6.0/gvanno.py
---query_vcf ~/gvanno-1.6.0/examples/example.grch37.vcf.gz
---gvanno_dir ~/gvanno-1.6.0
---output_dir ~/gvanno-1.6.0
+```
+python ~/gvanno-1.7.0/gvanno.py
+--query_vcf ~/gvanno-1.7.0/examples/example.grch37.vcf.gz
+--gvanno_dir ~/gvanno-1.7.0
+--output_dir ~/gvanno-1.7.0
 --sample_id example
 --genome_assembly grch37
 --container docker
 --force_overwrite
 ```
 
+or Singularity-based
+
+```
+python ~/gvanno-1.7.0/gvanno.py
+--query_vcf ~/gvanno-1.7.0/examples/example.grch37.vcf.gz
+--gvanno_dir ~/gvanno-1.7.0
+--output_dir ~/gvanno-1.7.0
+--sample_id example
+--genome_assembly grch37
+--container singularity
+--sif_file gvanno_1.7.0.sif
+--force_overwrite
+```
+
 This command will run the Docker-based *gvanno* workflow and produce the following output files in the *examples* folder:
 
-1.  **example_gvanno_pass_grch37.vcf.gz (.tbi)** - Bgzipped VCF file with rich set of functional/clinical annotations
-2.  **example_gvanno_pass_grch37.tsv.gz** - Compressed TSV file with rich set of functional/clinical annotations
+1.  **example_gvanno_grch37.pass.vcf.gz (.tbi)** - Bgzipped VCF file with rich set of functional/clinical variant and gene annotations
+2.  **example_gvanno_grch37.pass.tsv.gz** - Compressed TSV file with rich set of functional/clinical variant and gene annotations
 
 Similar files are produced for all variants, not only variants with a *PASS* designation in the VCF FILTER column.
 

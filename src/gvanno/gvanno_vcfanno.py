@@ -1,138 +1,167 @@
 #!/usr/bin/env python
 
 import argparse
-from cyvcf2 import VCF
 import random
-import annoutils
-import os
-import re
-import sys
+import re, os
+import glob
 
-logger = annoutils.getlogger('gvanno-vcfanno')
+from lib.gvanno.vcf import get_vcf_info_tags, print_vcf_header
+from lib.gvanno.utils import check_subprocess, random_id_generator, getlogger, remove_file
+from lib.gvanno.annoutils import read_vcfanno_tag_file
 
 
 def __main__():
-   parser = argparse.ArgumentParser(description='Run brentp/vcfanno - annotate a VCF file against multiple VCF files in parallel', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-   parser.add_argument('query_vcf', help='Bgzipped input VCF file with query variants (SNVs/InDels)')
-   parser.add_argument('out_vcf', help='Output VCF file with appended annotations from multiple VCF files')
-   parser.add_argument('gvanno_db_dir', help='gvanno data directory')
-   parser.add_argument('--num_processes', help="Number of processes vcfanno can use during annotation", default=4)
-   parser.add_argument("--ncer",action = "store_true", help="Annotate VCF with ranking of variant deleteriousness in non-coding regions (ncER)")
-   parser.add_argument("--clinvar",action = "store_true", help="Annotate VCF with annotations from ClinVar")
-   parser.add_argument("--dbnsfp",action = "store_true", help="Annotate VCF with annotations from database of non-synonymous functional predictions")
-   parser.add_argument("--gvanno_xref",action = "store_true", help="Annotate VCF with transcript annotations from gvanno (protein complexes, disease associations, etc)")
-   parser.add_argument("--gwas",action = "store_true", help="Annotate VCF with against known loci associated with cancer, as identified from genome-wide association studies (GWAS)")
+    parser = argparse.ArgumentParser(description='Run brentp/vcfanno - annotate a VCF file against multiple VCF files in parallel',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        'query_vcf', help='Bgzipped input VCF file with query variants (SNVs/InDels)')
+    parser.add_argument(
+        'out_vcf', help='Output VCF file with appended annotations from multiple VCF files')
+    parser.add_argument(
+        'gvanno_db_dir', help='gvanno assembly-specific data directory')
+    parser.add_argument(
+        '--num_processes', help="Number of processes vcfanno can use during annotation", default=4)
+    parser.add_argument("--clinvar", action="store_true",
+                        help="Annotate VCF with annotations from ClinVar")
+    parser.add_argument("--ncer", action="store_true",
+                         help="Annotate VCF with ranking of variant deleteriousness in non-coding regions (ncER)")
+    parser.add_argument("--dbnsfp", action="store_true",
+                        help="Annotate VCF with annotations from database of non-synonymous functional predictions")   
+    parser.add_argument("--gene_transcript_xref", action="store_true",
+                        help="Annotate VCF with transcript annotations from PCGR (drug targets, actionable genes, cancer gene roles, etc)")
+    parser.add_argument("--gwas", action="store_true",
+                        help="Annotate VCF against moderate-to-low cancer risk variants, as identified from genome-wide association studies (GWAS)")
+    parser.add_argument("--debug", action="store_true", default=False,
+                        help="Print full commands to log, keep temporary and log files, default: %(default)s")
 
-   
-   args = parser.parse_args()
-   query_info_tags = get_vcf_info_tags(args.query_vcf)
-   vcfheader_file = args.out_vcf + '.tmp.' + str(random.randrange(0,10000000)) + '.header.txt'
-   vcfanno_conf_fname = args.out_vcf + '.tmp.conf.toml'
-   print_vcf_header(args.query_vcf, vcfheader_file, chromline_only = False)
-   run_vcfanno(args.num_processes, args.query_vcf, vcfanno_conf_fname, query_info_tags, vcfheader_file, args.gvanno_db_dir, args.out_vcf, args.ncer, args.clinvar, args.dbnsfp, args.gvanno_xref,args.gwas)
+    args = parser.parse_args()
 
+    logger = getlogger('gvanno-vcfanno')
 
-def prepare_vcfanno_configuration(vcfanno_data_directory, vcfanno_conf_fname, vcfheader_file, logger, datasource_info_tags, query_info_tags, datasource):
-   for t in datasource_info_tags:
-      if t in query_info_tags:
-         logger.warning("Query VCF has INFO tag " + str(t) + ' - this is also present in the ' + str(datasource) + ' VCF/BED annotation file. This tag will be overwritten if not renamed in the query VCF')
-   append_to_conf_file(datasource, datasource_info_tags, vcfanno_data_directory, vcfanno_conf_fname)
-   append_to_vcf_header(vcfanno_data_directory, datasource, vcfheader_file)
+    query_info_tags = get_vcf_info_tags(args.query_vcf)
+    vcfheader_file = args.out_vcf + '.tmp.' + \
+        str(random.randrange(0, 10000000)) + '.header.txt'
+    conf_fname = args.out_vcf + '.tmp.conf.toml'
+    print_vcf_header(args.query_vcf, vcfheader_file,
+                     logger, chromline_only=False)
+    
+    vcfanno_tracks = {}
+    ## BED   
+    vcfanno_tracks['gene_transcript_xref'] = args.gene_transcript_xref
 
-def run_vcfanno(num_processes, query_vcf, vcfanno_conf_fname, query_info_tags, vcfheader_file, gvanno_db_directory, output_vcf, ncer, clinvar, dbnsfp,  gvanno_xref, gwas):
-   """
-   Function that annotates a VCF file with vcfanno against a user-defined set of germline and somatic VCF files
-   """
-   clinvar_info_tags = ["CLINVAR_MSID","CLINVAR_PMID","CLINVAR_CLNSIG","CLINVAR_VARIANT_ORIGIN","CLINVAR_CONFLICTED","CLINVAR_UMLS_CUI","CLINVAR_HGVSP",
-                        "CLINVAR_UMLS_CUI_SOMATIC","CLINVAR_CLNSIG_SOMATIC","CLINVAR_PMID_SOMATIC","CLINVAR_ALLELE_ID","CLINVAR_MOLECULAR_EFFECT",
-                        "CLINVAR_REVIEW_STATUS_STARS","CLINVAR_CLASSIFICATION"]
-   dbnsfp_info_tags = ["DBNSFP"]
-   gvanno_xref_info_tags = ["GVANNO_XREF"]
-   gwas_info_tags = ["GWAS_HIT"]
-   ncer_info_tags = ["NCER_PERCENTILE"]
-   
-   if clinvar is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, clinvar_info_tags, query_info_tags, "clinvar")
-   if dbnsfp is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, dbnsfp_info_tags, query_info_tags, "dbnsfp")
-   if gvanno_xref is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, gvanno_xref_info_tags, query_info_tags, "gvanno_xref")
-   if gwas is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, gwas_info_tags, query_info_tags, "gwas")
-   if ncer is True:
-      prepare_vcfanno_configuration(gvanno_db_directory, vcfanno_conf_fname, vcfheader_file, logger, ncer_info_tags, query_info_tags, "ncer")
+    ## VCF
+    vcfanno_tracks['gwas'] = args.gwas
+    vcfanno_tracks['dbnsfp'] = args.dbnsfp
+    vcfanno_tracks['clinvar'] = args.clinvar
+    vcfanno_tracks['ncer'] = args.ncer
+    vcfanno_tracks['gene_transcript_xref'] = args.gene_transcript_xref
 
-   out_vcf_vcfanno_unsorted1 = output_vcf + '.tmp.unsorted.1'
-   query_prefix = re.sub('\.vcf.gz$','',query_vcf)
-   print_vcf_header(query_vcf, vcfheader_file, chromline_only = True)
-   command1 = "vcfanno -p=" + str(num_processes) + " " + str(vcfanno_conf_fname) + " " + str(query_vcf) + " > " + str(out_vcf_vcfanno_unsorted1) + " 2> " + str(query_prefix) + '.vcfanno.log'
-   os.system(command1)
-   
-   os.system('cat ' + str(vcfheader_file) + ' > ' + str(output_vcf))
-   os.system('cat ' + str(out_vcf_vcfanno_unsorted1) + ' | grep -v \'^#\' >> ' + str(output_vcf))
-   os.system('rm -f ' + str(output_vcf) + '.tmp*')
-   os.system('bgzip -f ' + str(output_vcf))
-   os.system('tabix -f -p vcf ' + str(output_vcf) + '.gz')
-   return 0
-   
-def append_to_vcf_header(gvanno_db_directory, datasource, vcfheader_file):
-   """
-   Function that appends the VCF header information for a given 'datasource' (containing INFO tag formats/descriptions, and datasource version)
-   """
-   vcf_info_tags_file = str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.vcfanno.vcf_info_tags.txt'
-   os.system('cat ' + str(vcf_info_tags_file) + ' >> ' + str(vcfheader_file))
+    run_vcfanno(args.num_processes, args.query_vcf, vcfanno_tracks, query_info_tags, vcfheader_file,
+                args.gvanno_db_dir, conf_fname, args.out_vcf, args.debug, logger)
 
 
-def append_to_conf_file(datasource, datasource_info_tags, gvanno_db_directory, vcfanno_conf_fname):
-   """
-   Function that appends data to a vcfanno conf file ('vcfanno_conf_fname') according to user-defined ('datasource'). 
-   The datasource defines the set of tags that will be appended during annotation
-   """
-   fh = open(vcfanno_conf_fname,'a')
-   if datasource != 'gvanno_xref' and datasource != 'ncer':
-      fh.write('[[annotation]]\n')
-      fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.vcf.gz"\n')
-      fields_string = 'fields = ["' + '","'.join(datasource_info_tags) + '"]'
-      ops = ['concat'] * len(datasource_info_tags)
-      ops_string = 'ops=["' + '","'.join(ops) + '"]'
-      fh.write(fields_string + '\n')
-      fh.write(ops_string + '\n\n')
-   else:
-      if datasource == 'gvanno_xref' or datasource == 'ncer':
-         if datasource == 'gvanno_xref':
-            fh.write('[[annotation]]\n')
-            fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.bed.gz"\n')
-            fh.write('columns=[4]\n')
-            names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
-            fh.write(names_string +'\n')
-            fh.write('ops=["concat"]\n\n')
-            
-         else: ## ncER
-            fh.write('[[annotation]]\n')
-            fh.write('file="' + str(gvanno_db_directory) + '/' + str(datasource) + '/' + str(datasource) + '.bed.gz"\n')
-            fh.write('columns=[4]\n')
-            names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
-            fh.write(names_string +'\n')
-            fh.write('ops=["mean"]\n\n')
-   fh.close()
-   return
+def run_vcfanno(num_processes, query_vcf, vcfanno_tracks, query_info_tags, vcfheader_file, gvanno_db_dir, conf_fname,
+                output_vcf, debug, logger):
 
-def get_vcf_info_tags(vcffile):
-   vcf = VCF(vcffile)
-   info_tags = {}
-   for e in vcf.header_iter():
-      header_element = e.info()
-      if 'ID' in header_element.keys() and 'HeaderType' in header_element.keys():
-         if header_element['HeaderType'] == 'INFO':
-            info_tags[str(header_element['ID'])] = 1
-   
-   return info_tags
+    """
+    Function that annotates a VCF file with vcfanno against a user-defined set of germline and somatic VCF files
+    """
+
+    ## Collect metadata (VCF INFO tags) for annotations populated with vcfanno
+    metadata_vcf_infotags = {}
+    infotags = {}
+
+    track_file_info = {}
+
+    ## INFO tags used for vcfanno annotation
+    track_file_info['tags_fname'] = {}
+
+    ## Source file (VCF/BED) used for vcfanno annotation
+    track_file_info['track_fname'] = {}
+    
+    for variant_track in ['clinvar','gwas','dbnsfp']:
+        track_file_info['tags_fname'][variant_track] = os.path.join(gvanno_db_dir,'variant','vcf', variant_track, f'{variant_track}.vcfanno.vcf_info_tags.txt')
+        track_file_info['track_fname'][variant_track] = os.path.join(gvanno_db_dir,'variant','vcf', variant_track, f'{variant_track}.vcf.gz')
+
+    track_file_info['tags_fname']['gene_transcript_xref'] = os.path.join(gvanno_db_dir,'gene','bed', 'gene_transcript_xref', 'gene_transcript_xref.vcfanno.vcf_info_tags.txt')
+    track_file_info['track_fname']['gene_transcript_xref'] = os.path.join(gvanno_db_dir,'gene','bed', 'gene_transcript_xref', 'gene_transcript_xref.bed.gz')
+    track_file_info['tags_fname']['ncer'] = os.path.join(gvanno_db_dir,'misc','bed', 'ncer', 'ncer.vcfanno.vcf_info_tags.txt')
+    track_file_info['track_fname']['ncer'] = os.path.join(gvanno_db_dir,'misc','bed', 'ncer', 'ncer.bed.gz')
+    
+    
+    for track in track_file_info['tags_fname']:
+
+        if not vcfanno_tracks[track] is True:
+            continue
+
+        infotags_vcfanno = read_vcfanno_tag_file(track_file_info['tags_fname'][track], logger)
+        infotags[track] = infotags_vcfanno.keys()
+        for tag in infotags_vcfanno:
+            if tag in query_info_tags:
+                logger.warning("Query VCF has INFO tag " + str(tag) + ' - this is also present in the ' + str(
+                    track) + ' VCF/BED annotation file. This tag will be overwritten if not renamed in the query VCF')
+            metadata_vcf_infotags[tag] = infotags_vcfanno[tag]
+        
+        ## append track to vcfanno configuration file
+        append_to_conf_file(track, infotags[track], track_file_info['track_fname'][track], conf_fname)
+
+        ## Append VCF INFO tags to VCF header file
+        check_subprocess(logger, f'cat {track_file_info["tags_fname"][track]} >> {vcfheader_file}', debug=False)
+
+    random_id = random_id_generator(10)
+    query_prefix = re.sub(r'\.vcf.gz$', '', query_vcf)
+    print_vcf_header(query_vcf, vcfheader_file, logger, chromline_only=True)
+    
+    vcfanno_command = (
+        f"vcfanno -p={num_processes} {conf_fname} {query_vcf} > {query_prefix}.{random_id}.tmp.vcfanno.unsorted.vcf 2> "
+        f"{query_prefix}.{random_id}.tmp.vcfanno.log"
+        )
+    
+    if debug:
+        logger.info(f"vcfanno command: {vcfanno_command}")
+    check_subprocess(logger, vcfanno_command, debug)
+
+    check_subprocess(
+        logger, f'cat {vcfheader_file} > {output_vcf}', debug=False)
+    check_subprocess(
+        logger, f"cat {query_prefix}.{random_id}.tmp.vcfanno.unsorted.vcf | grep -v '^#' >> {output_vcf}", debug=False)
+    check_subprocess(logger, f'bgzip -f {output_vcf}', debug)
+    check_subprocess(logger, f'tabix -f -p vcf {output_vcf}.gz', debug)
+    if not debug:
+        for intermediate_file in glob.glob(f"{query_prefix}.{random_id}.tmp.vcfanno*"):
+            remove_file(intermediate_file)
+    
+    return
 
 
-def print_vcf_header(query_vcf, vcfheader_file, chromline_only = False):
-   if chromline_only == True:
-      os.system('bgzip -dc ' + str(query_vcf) + ' | egrep \'^#\' | egrep \'^#CHROM\' >> ' + str(vcfheader_file))
-   else:
-      os.system('bgzip -dc ' + str(query_vcf) + ' | egrep \'^#\' | egrep -v \'^#CHROM\' > ' + str(vcfheader_file))
+def append_to_conf_file(datasource, datasource_info_tags, datasource_track_fname, conf_fname):
+    """
+    Function that appends data to a vcfanno conf file ('conf_fname') according to user-defined ('datasource').
+    The datasource defines the set of tags that will be appended during annotation
+    """
+    fh = open(conf_fname, 'a')
+    fh.write('[[annotation]]\n')
+    fh.write('file="' + str(datasource_track_fname) + '"\n')
+    if datasource == 'ncer' or datasource == 'gerp':        
+        fh.write('columns=[4]\n')
+        names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
+        fh.write(names_string + '\n')
+        fh.write('ops=["mean"]\n\n')
+    elif datasource == 'gene_transcript_xref' or datasource == 'rmsk':       
+        fh.write('columns=[4]\n')
+        names_string = 'names=["' + '","'.join(datasource_info_tags) + '"]'
+        fh.write(names_string + '\n')
+        fh.write('ops=["concat"]\n\n')
+    else:        
+        fields_string = 'fields = ["' + '","'.join(datasource_info_tags) + '"]'
+        ops = ['concat'] * len(datasource_info_tags)
+        ops_string = 'ops=["' + '","'.join(ops) + '"]'
+        fh.write(fields_string + '\n')
+        fh.write(ops_string + '\n\n')
+    fh.close()
+    return
 
-if __name__=="__main__": __main__()
+
+
+if __name__ == "__main__":
+    __main__()
