@@ -196,7 +196,7 @@ def download_gvanno_ref_data(arg_dict):
 
    ## Remote URL - pre-indexed VEP cache
    datasets['vep_cache']['remote_url'] = (
-      f"ftp://ftp.ensembl.org/pub/current_variation/indexed_vep_cache/"
+      f"https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION}/variation/indexed_vep_cache/"
       f"homo_sapiens_vep_{ENSEMBL_VERSION}_{VEP_ASSEMBLY}.tar.gz"
       )
    
